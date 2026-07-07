@@ -40,31 +40,46 @@ def main():
     )
     parser.add_argument(
         "--input-dir",
-        default=None,
+        default=default_config.input_dir,
         help="Directory containing input CSV files (default: data/input)",
     )
     parser.add_argument(
         "--output-dir",
-        default=None,
+        default=default_config.output_dir,
         help="Directory for output Parquet/log files (default: data/output)",
     )
     parser.add_argument(
         "--workers",
         type=int,
-        default=None,
+        default=default_config.max_workers,
         help=f"Number of worker processes (default: CPU count, currently {os.cpu_count() or 4})",
     )
     parser.add_argument(
-        "--no-influx", action="store_true", help="Disable InfluxDB writing"
+        "--no-influx",
+        action="store_true",
+        help="Disable InfluxDB writing default=default_config.influx.enabled",
     )
-    parser.add_argument("--influx-url", default=None, help="InfluxDB server URL")
     parser.add_argument(
-        "--influx-token", default=None, help="InfluxDB authentication token"
+        "--influx-url", default=default_config.influx.url, help="InfluxDB server URL"
     )
-    parser.add_argument("--influx-org", default=None, help="InfluxDB organization")
-    parser.add_argument("--influx-bucket", default=None, help="InfluxDB bucket name")
     parser.add_argument(
-        "--influx-batch-size", type=int, default=None, help="InfluxDB write batch size"
+        "--influx-token",
+        default=default_config.influx.token,
+        help="InfluxDB authentication token",
+    )
+    parser.add_argument(
+        "--influx-org", default=default_config.influx.org, help="InfluxDB organization"
+    )
+    parser.add_argument(
+        "--influx-bucket",
+        default=default_config.influx.bucket,
+        help="InfluxDB bucket name",
+    )
+    parser.add_argument(
+        "--influx-batch-size",
+        type=int,
+        default=default_config.influx.batch_size,
+        help="InfluxDB write batch size",
     )
     parser.add_argument(
         "--log-level",

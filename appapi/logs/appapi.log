@@ -1,0 +1,36 @@
+2026-07-07 11:17:24.901 | INFO     | appapi.main:on_startup:34 - Futures K-Line API started; parquet data dir=E:\BugHub\FutureData\ctp_reaserch\data\output
+2026-07-07 11:20:00.662 | INFO     | appapi.main:on_startup:34 - Futures K-Line API started; parquet data dir=E:\BugHub\FutureData\ctp_reaserch\data\output
+2026-07-07 11:27:06.561 | INFO     | appapi.services.market_data:load_kline_data:135 - Loading kline data: symbol=RB0909, file=E:\BugHub\FutureData\ctp_reaserch\data\output\RB0909.parquet
+2026-07-07 11:27:47.402 | INFO     | appapi.main:on_startup:34 - Futures K-Line API started; parquet data dir=E:\BugHub\FutureData\ctp_reaserch\data\output
+2026-07-07 11:56:01.429 | INFO     | appapi.main:on_startup:34 - Futures K-Line API started; parquet data dir=E:\BugHub\FutureData\ctp_reaserch\data\output
+2026-07-07 11:58:54.265 | INFO     | appapi.main:on_startup:34 - Futures K-Line API started; parquet data dir=E:\BugHub\FutureData\ctp_reaserch\data\output
+2026-07-07 11:58:56.028 | INFO     | appapi.services.market_data:load_kline_data:135 - Loading kline data: symbol=RB0909, file=E:\BugHub\FutureData\ctp_reaserch\data\output\RB0909.parquet
+2026-07-07 12:02:38.646 | INFO     | appapi.main:on_startup:34 - Futures K-Line API started; parquet data dir=E:\BugHub\FutureData\ctp_reaserch\data\output
+2026-07-07 12:05:22.378 | INFO     | appapi.services.market_data:load_kline_data:141 - Loading kline data: symbol=RB0909, file=E:\BugHub\FutureData\ctp_reaserch\data\output\RB0909.parquet
+2026-07-07 12:05:22.746 | INFO     | appapi.services.market_data:load_kline_data:174 - Loaded 5355 candles and 0 markers for RB0909
+2026-07-07 12:07:43.558 | INFO     | appapi.services.market_data:load_kline_data:141 - Loading kline data: symbol=RB0909, file=E:\BugHub\FutureData\ctp_reaserch\data\output\RB0909.parquet
+2026-07-07 12:07:43.589 | INFO     | appapi.services.market_data:load_kline_data:174 - Loaded 5355 candles and 0 markers for RB0909
+2026-07-07 12:11:10.197 | INFO     | appapi.services.market_data:load_kline_data:141 - Loading kline data: symbol=RB0909, file=E:\BugHub\FutureData\ctp_reaserch\data\output\RB0909.parquet
+2026-07-07 12:11:10.221 | INFO     | appapi.services.market_data:load_kline_data:174 - Loaded 5355 candles and 0 markers for RB0909
+2026-07-07 12:11:10.248 | INFO     | appapi.services.market_data:load_kline_data:141 - Loading kline data: symbol=RB0909, file=E:\BugHub\FutureData\ctp_reaserch\data\output\RB0909.parquet
+2026-07-07 12:11:10.271 | INFO     | appapi.services.market_data:load_kline_data:174 - Loaded 5355 candles and 0 markers for RB0909
+2026-07-07 12:11:41.004 | INFO     | appapi.services.market_data:load_kline_data:141 - Loading kline data: symbol=RB0909, file=E:\BugHub\FutureData\ctp_reaserch\data\output\RB0909.parquet
+2026-07-07 12:11:41.076 | INFO     | appapi.services.market_data:load_kline_data:174 - Loaded 5355 candles and 0 markers for RB0909
+2026-07-07 12:11:41.100 | INFO     | appapi.services.market_data:load_kline_data:141 - Loading kline data: symbol=RB0909, file=E:\BugHub\FutureData\ctp_reaserch\data\output\RB0909.parquet
+2026-07-07 12:11:41.146 | INFO     | appapi.services.market_data:load_kline_data:174 - Loaded 5355 candles and 0 markers for RB0909
+2026-07-07 12:11:46.006 | INFO     | appapi.services.market_data:load_kline_data:141 - Loading kline data: symbol=RB0909, file=E:\BugHub\FutureData\ctp_reaserch\data\output\RB0909.parquet
+2026-07-07 12:11:46.037 | INFO     | appapi.services.market_data:load_kline_data:174 - Loaded 5355 candles and 0 markers for RB0909
+2026-07-07 12:11:46.060 | INFO     | appapi.services.market_data:load_kline_data:141 - Loading kline data: symbol=RB0909, file=E:\BugHub\FutureData\ctp_reaserch\data\output\RB0909.parquet
+2026-07-07 12:11:46.091 | INFO     | appapi.services.market_data:load_kline_data:174 - Loaded 5355 candles and 0 markers for RB0909
+2026-07-07 12:11:49.789 | INFO     | appapi.services.market_data:load_kline_data:141 - Loading kline data: symbol=RB0909, file=E:\BugHub\FutureData\ctp_reaserch\data\output\RB0909.parquet
+2026-07-07 12:11:49.826 | INFO     | appapi.services.market_data:load_kline_data:174 - Loaded 5355 candles and 0 markers for RB0909
+2026-07-07 12:11:49.872 | INFO     | appapi.services.market_data:load_kline_data:141 - Loading kline data: symbol=RB0909, file=E:\BugHub\FutureData\ctp_reaserch\data\output\RB0909.parquet
+2026-07-07 12:11:49.904 | INFO     | appapi.services.market_data:load_kline_data:174 - Loaded 5355 candles and 0 markers for RB0909
+2026-07-07 12:52:20.274 | INFO     | appapi.services.market_data:load_kline_data:141 - Loading kline data: symbol=RB0909, file=E:\BugHub\FutureData\ctp_reaserch\data\output\RB0909.parquet
+2026-07-07 12:52:20.312 | INFO     | appapi.services.market_data:load_kline_data:174 - Loaded 5355 candles and 0 markers for RB0909
+2026-07-07 12:52:20.338 | INFO     | appapi.services.market_data:load_kline_data:141 - Loading kline data: symbol=RB0909, file=E:\BugHub\FutureData\ctp_reaserch\data\output\RB0909.parquet
+2026-07-07 12:52:20.365 | INFO     | appapi.services.market_data:load_kline_data:174 - Loaded 5355 candles and 0 markers for RB0909
+2026-07-07 14:00:19.625 | INFO     | appapi.services.market_data:load_kline_data:141 - Loading kline data: symbol=RB0909, file=E:\BugHub\FutureData\ctp_reaserch\data\output\RB0909.parquet
+2026-07-07 14:00:19.653 | INFO     | appapi.services.market_data:load_kline_data:174 - Loaded 5355 candles and 0 markers for RB0909
+2026-07-07 14:00:19.760 | INFO     | appapi.services.market_data:load_kline_data:141 - Loading kline data: symbol=RB0909, file=E:\BugHub\FutureData\ctp_reaserch\data\output\RB0909.parquet
+2026-07-07 14:00:19.795 | INFO     | appapi.services.market_data:load_kline_data:174 - Loaded 5355 candles and 0 markers for RB0909

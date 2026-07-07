@@ -2,26 +2,28 @@
 Command-line entry point for the futures data pipeline.
 
 Usage:
-    python run.py
-    python run.py --input-dir data/input --output-dir data/output --workers 4
-    python run.py --no-influx
+    python data_pipeline/run.py
+    python data_pipeline/run.py --input-dir data/input --output-dir data/output --workers 4
+    python data_pipeline/run.py --no-influx
 
-Environment variables (see src/config.py for all):
+Environment variables (see data_pipeline/src/config.py for all):
     INFLUXDB_URL, INFLUXDB_TOKEN, INFLUXDB_ORG, INFLUXDB_BUCKET
     PIPELINE_INPUT_DIR, PIPELINE_OUTPUT_DIR, PIPELINE_MAX_WORKERS
     INFLUXDB_ENABLED
 """
 
-from src.config import PipelineConfig, InfluxDBConfig, config as default_config
-from src.pipeline import run_pipeline
 import argparse
 import logging
 import os
 import sys
 
-# Ensure src is importable when run from project root
+# Ensure data_pipeline/src is importable when launched from the project root.
+PIPELINE_ROOT = os.path.dirname(os.path.abspath(__file__))
+if PIPELINE_ROOT not in sys.path:
+    sys.path.insert(0, PIPELINE_ROOT)
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from src.config import PipelineConfig, InfluxDBConfig, config as default_config
+from src.pipeline import run_pipeline
 
 
 def setup_logging(level: str = "INFO") -> None:

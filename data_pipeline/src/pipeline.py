@@ -143,8 +143,10 @@ def run_pipeline(cfg: Optional[PipelineConfig] = None) -> dict:
     if cfg is None:
         cfg = default_config
 
-    # Resolve relative paths against the project root
-    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    # Resolve data paths against the repository root while keeping imports rooted
+    # at data_pipeline for spawned worker processes.
+    pipeline_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    project_root = os.path.dirname(pipeline_root)
     input_dir = (
         cfg.input_dir
         if os.path.isabs(cfg.input_dir)
@@ -185,7 +187,7 @@ def run_pipeline(cfg: Optional[PipelineConfig] = None) -> dict:
     with ProcessPoolExecutor(
         max_workers=cfg.max_workers,
         initializer=_worker_initializer,
-        initargs=(project_root,),
+        initargs=(pipeline_root,),
     ) as executor:
         future_to_file = {
             executor.submit(process_single_contract, f, output_dir, influx_config): f
@@ -241,15 +243,15 @@ def run_pipeline(cfg: Optional[PipelineConfig] = None) -> dict:
     return summary
 
 
-def _worker_initializer(project_root: str) -> None:
+def _worker_initializer(pipeline_root: str) -> None:
     """
     Initializer for ProcessPoolExecutor workers.
 
     On Windows (spawn start method), each worker is a fresh Python process
     that does not inherit sys.path from the parent.  This ensures the project
-    root is on sys.path so `from src.xxx` imports resolve in workers.
+    pipeline root is on sys.path so `from src.xxx` imports resolve in workers.
     """
     import sys
 
-    if project_root not in sys.path:
-        sys.path.insert(0, project_root)
+    if pipeline_root not in sys.path:
+        sys.path.insert(0, pipeline_root)

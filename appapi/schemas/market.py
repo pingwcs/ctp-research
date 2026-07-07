@@ -24,5 +24,8 @@ class TradeMarker(BaseModel):
 
 class KLineResponse(BaseModel):
     symbol: str
+    total: int = Field(..., description="Total candles available for the symbol")
+    offset: int = Field(..., description="Zero-based offset of this response window")
+    limit: int = Field(..., description="Maximum candle count requested")
     candles: list[Candle]
     markers: list[TradeMarker]

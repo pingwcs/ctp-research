@@ -88,7 +88,12 @@ def _describe_columns(connection: duckdb.DuckDBPyConnection, parquet_path: Path)
     return [row[0] for row in rows]
 
 
-def _build_select_sql(parquet_path: Path, mapped: dict[str, str]) -> str:
+def _build_select_sql(
+    parquet_path: Path,
+    mapped: dict[str, str],
+    offset: int,
+    limit: int,
+) -> str:
     time_column = _quote_identifier(mapped["time"])
     signal_expr = "NULL AS signal"
     if "signal" in mapped:
@@ -110,6 +115,20 @@ def _build_select_sql(parquet_path: Path, mapped: dict[str, str]) -> str:
           AND {_quote_identifier(mapped["low"])} IS NOT NULL
           AND {_quote_identifier(mapped["close"])} IS NOT NULL
         ORDER BY {time_column}
+        LIMIT {int(limit)} OFFSET {int(offset)}
+    """
+
+
+def _build_count_sql(parquet_path: Path, mapped: dict[str, str]) -> str:
+    time_column = _quote_identifier(mapped["time"])
+    return f"""
+        SELECT COUNT(*)::BIGINT
+        FROM read_parquet('{str(parquet_path).replace("'", "''")}')
+        WHERE {time_column} IS NOT NULL
+          AND {_quote_identifier(mapped["open"])} IS NOT NULL
+          AND {_quote_identifier(mapped["high"])} IS NOT NULL
+          AND {_quote_identifier(mapped["low"])} IS NOT NULL
+          AND {_quote_identifier(mapped["close"])} IS NOT NULL
     """
 
 
@@ -136,15 +155,32 @@ def _marker_from_signal(time_value: int, signal: str | None) -> TradeMarker | No
     return None
 
 
-def load_kline_data(symbol: str) -> KLineResponse:
+def load_kline_data(
+    symbol: str,
+    offset: int | None = None,
+    limit: int = 200,
+) -> KLineResponse:
     parquet_path = _resolve_contract_file(symbol)
-    logger.info("Loading kline data: symbol={}, file={}", symbol, parquet_path)
+    safe_limit = max(1, min(limit, 500))
+    logger.info(
+        "Loading kline data: symbol={}, file={}, offset={}, limit={}",
+        symbol,
+        parquet_path,
+        offset,
+        safe_limit,
+    )
 
     try:
         with duckdb.connect(database=":memory:", read_only=False) as connection:
             columns = _describe_columns(connection, parquet_path)
             mapped = _column_map(columns)
-            rows = connection.execute(_build_select_sql(parquet_path, mapped)).fetchall()
+            total = int(connection.execute(_build_count_sql(parquet_path, mapped)).fetchone()[0])
+            safe_offset = max(0, total - safe_limit) if offset is None else max(0, offset)
+            if total:
+                safe_offset = min(safe_offset, max(0, total - 1))
+            rows = connection.execute(
+                _build_select_sql(parquet_path, mapped, safe_offset, safe_limit),
+            ).fetchall()
     except HTTPException:
         raise
     except Exception as exc:
@@ -171,5 +207,17 @@ def load_kline_data(symbol: str) -> KLineResponse:
         if marker:
             markers.append(marker)
 
-    logger.info("Loaded {} candles and {} markers for {}", len(candles), len(markers), symbol)
-    return KLineResponse(symbol=symbol, candles=candles, markers=markers)
+    logger.info(
+        "Loaded {} candles and {} markers for {}",
+        len(candles),
+        len(markers),
+        symbol,
+    )
+    return KLineResponse(
+        symbol=symbol,
+        total=total,
+        offset=safe_offset,
+        limit=safe_limit,
+        candles=candles,
+        markers=markers,
+    )

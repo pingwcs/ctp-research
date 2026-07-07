@@ -30,6 +30,9 @@ var/
 # npm 缓存文件
 node_modules/
 
+# local runtime logs
+*.log
+
 # VSCode 编辑器配置
 .vscode/
 *.swp

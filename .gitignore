@@ -3,6 +3,7 @@
 data/
 venv/
 
+
 # Python 通用缓存、编译文件
 __pycache__/
 *.py[cod]
@@ -24,6 +25,10 @@ var/
 *.egg-info/
 .installed.cfg
 *.egg
+
+
+# npm 缓存文件
+node_modules/
 
 # VSCode 编辑器配置
 .vscode/

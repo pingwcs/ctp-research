@@ -1,0 +1,32 @@
+# 自定义项目目录
+.agents/
+data/
+venv/
+
+# Python 通用缓存、编译文件
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# VSCode 编辑器配置
+.vscode/
+*.swp
+*.swo
+.DS_Store

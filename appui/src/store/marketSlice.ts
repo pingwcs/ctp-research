@@ -1,64 +1,52 @@
 import { createAsyncThunk, createSlice, type PayloadAction } from '@reduxjs/toolkit';
 
-export type TradeSignalText = 'Buy' | 'Sell';
-
-export interface Candle {
-  time: number;
-  open: number;
-  high: number;
-  low: number;
-  close: number;
-  volume: number;
-}
-
-export interface TradeMarker {
-  time: number;
-  position: 'aboveBar' | 'belowBar';
-  color: string;
-  shape: 'arrowUp' | 'arrowDown';
-  text: TradeSignalText;
-}
-
-export interface KLineResponse {
-  symbol: string;
-  candles: Candle[];
-  markers: TradeMarker[];
-}
+import {
+  fetchKLine,
+  type Candle,
+  type KLineRequest,
+  type KLineResponse,
+  type TradeMarker,
+} from '../api/market';
+import { DEFAULT_KLINE_LIMIT, DEFAULT_SYMBOL } from '../config/chart';
 
 interface MarketState {
   symbol: string;
   candles: Candle[];
   markers: TradeMarker[];
+  total: number;
+  offset: number;
+  limit: number;
   loading: boolean;
   error: string | null;
   lastLoadedAt: number | null;
+  lastRequestedRange: string | null;
 }
 
 const initialState: MarketState = {
-  symbol: 'RB0909',
+  symbol: DEFAULT_SYMBOL,
   candles: [],
   markers: [],
+  total: 0,
+  offset: 0,
+  limit: DEFAULT_KLINE_LIMIT,
   loading: false,
   error: null,
   lastLoadedAt: null,
+  lastRequestedRange: null,
 };
 
-export const fetchKLineData = createAsyncThunk<KLineResponse, string, { rejectValue: string }>(
-  'market/fetchKLineData',
-  async (symbol, { rejectWithValue }) => {
-    try {
-      const response = await fetch(`/api/market/kline?symbol=${encodeURIComponent(symbol)}`);
-      const payload = (await response.json()) as KLineResponse | { detail?: string };
-      if (!response.ok) {
-        return rejectWithValue('detail' in payload && payload.detail ? payload.detail : '行情数据加载失败');
-      }
-      return payload as KLineResponse;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : '网络异常，无法连接行情 API';
-      return rejectWithValue(message);
-    }
-  },
-);
+export const fetchKLineData = createAsyncThunk<
+  KLineResponse,
+  KLineRequest,
+  { rejectValue: string }
+>('market/fetchKLineData', async (request, { rejectWithValue }) => {
+  try {
+    return await fetchKLine(request);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '网络异常，无法连接行情 API';
+    return rejectWithValue(message);
+  }
+});
 
 const marketSlice = createSlice({
   name: 'market',
@@ -66,6 +54,7 @@ const marketSlice = createSlice({
   reducers: {
     setSymbol(state, action: PayloadAction<string>) {
       state.symbol = action.payload.trim().toUpperCase();
+      state.lastRequestedRange = null;
     },
     clearError(state) {
       state.error = null;
@@ -82,6 +71,10 @@ const marketSlice = createSlice({
         state.symbol = action.payload.symbol;
         state.candles = action.payload.candles;
         state.markers = action.payload.markers;
+        state.total = action.payload.total;
+        state.offset = action.payload.offset;
+        state.limit = action.payload.limit;
+        state.lastRequestedRange = `${action.payload.offset}:${action.payload.limit}`;
         state.lastLoadedAt = Date.now();
       })
       .addCase(fetchKLineData.rejected, (state, action) => {

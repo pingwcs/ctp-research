@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from math import floor, sqrt
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import duckdb
 from fastapi import HTTPException, status
@@ -31,6 +32,7 @@ INITIAL_CASH = 100_000.0
 MAX_TRADE_VALUE = 50_000.0
 TARGET_CASH_FRACTION = 0.5
 STOP_LOSS_PCT = 0.10
+DATA_TIMEZONE = ZoneInfo("Asia/Shanghai")
 
 STRATEGIES = [
     StrategyInfo(
@@ -59,6 +61,8 @@ def list_backtest_symbols() -> list[str]:
 def _to_epoch(value: datetime | None) -> int | None:
     if value is None:
         return None
+    if value.tzinfo is None or value.utcoffset() is None:
+        value = value.replace(tzinfo=DATA_TIMEZONE)
     return int(value.timestamp())
 
 
@@ -69,19 +73,20 @@ def _build_backtest_sql(
     end_epoch: int | None,
 ) -> str:
     time_column = _quote_identifier(mapped["time"])
+    time_epoch_expr = f"epoch({time_column})"
     close_column = _quote_identifier(mapped["close"])
     where_clauses = [
         f"{time_column} IS NOT NULL",
         f"{close_column} IS NOT NULL",
     ]
     if start_epoch is not None:
-        where_clauses.append(f"epoch(CAST({time_column} AS TIMESTAMP)) >= {start_epoch}")
+        where_clauses.append(f"{time_epoch_expr} >= {start_epoch}")
     if end_epoch is not None:
-        where_clauses.append(f"epoch(CAST({time_column} AS TIMESTAMP)) <= {end_epoch}")
+        where_clauses.append(f"{time_epoch_expr} <= {end_epoch}")
 
     return f"""
         SELECT
-            epoch(CAST({time_column} AS TIMESTAMP))::BIGINT AS time,
+            {time_epoch_expr}::BIGINT AS time,
             CAST({close_column} AS DOUBLE) AS close,
             AVG(CAST({close_column} AS DOUBLE)) OVER (
                 ORDER BY {time_column} ROWS BETWEEN 4 PRECEDING AND CURRENT ROW

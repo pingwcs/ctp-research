@@ -2,7 +2,7 @@
 .agents/
 data/
 venv/
-
+docs/
 
 
 
@@ -41,3 +41,4 @@ node_modules/
 *.swp
 *.swo
 .DS_Store
+

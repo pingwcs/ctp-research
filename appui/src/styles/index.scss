@@ -270,13 +270,80 @@ body {
   font-size: 14px;
 }
 
-.equity-chart {
-  display: block;
-  width: 100%;
+.equity-chart-shell {
+  position: relative;
   height: 260px;
+  width: 100%;
+  overflow: hidden;
   border: 1px solid #27272a;
   border-radius: 8px;
   background: #09090b;
+}
+
+.equity-chart {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.equity-chart__guide {
+  stroke: rgba(244, 244, 245, 0.26);
+  stroke-dasharray: 4 5;
+}
+
+.equity-chart__point {
+  fill: #38bdf8;
+  stroke: #09090b;
+  stroke-width: 2;
+}
+
+.equity-chart__active-anchor {
+  position: absolute;
+  z-index: 2;
+  height: 14px;
+  width: 14px;
+  border-radius: 50%;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+}
+
+.equity-tooltip {
+  min-width: 180px;
+}
+
+.equity-tooltip__time {
+  margin-bottom: 8px;
+  border-bottom: 1px solid rgba(244, 244, 245, 0.18);
+  padding-bottom: 6px;
+  color: #f4f4f5;
+  font-family:
+    JetBrains Mono,
+    ui-monospace,
+    SFMono-Regular,
+    monospace;
+  font-size: 12px;
+}
+
+.equity-tooltip__grid {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  gap: 5px 10px;
+  font-size: 12px;
+}
+
+.equity-tooltip__grid span {
+  color: #a1a1aa;
+}
+
+.equity-tooltip__grid strong {
+  text-align: right;
+  color: #f4f4f5;
+  font-family:
+    JetBrains Mono,
+    ui-monospace,
+    SFMono-Regular,
+    monospace;
+  font-weight: 600;
 }
 
 @media (max-width: 768px) {

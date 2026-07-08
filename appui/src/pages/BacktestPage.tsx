@@ -11,10 +11,11 @@ import {
   Space,
   Statistic,
   Table,
+  Tooltip,
   Typography,
   type TableColumnsType,
 } from 'antd';
-import { useEffect } from 'react';
+import { useEffect, useMemo, useState, type MouseEvent } from 'react';
 
 import type { BacktestTrade, EquityPoint } from '../api/backtest';
 import {
@@ -28,49 +29,157 @@ import {
 } from '../store/backtestSlice';
 import { useAppDispatch, useAppSelector } from '../store';
 
+const TIME_FORMATTER = new Intl.DateTimeFormat('zh-CN', {
+  timeZone: 'Asia/Shanghai',
+  year: 'numeric',
+  month: 'numeric',
+  day: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  hour12: false,
+});
+
+const MONEY_FORMATTER = new Intl.NumberFormat('zh-CN', {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
 const formatMetric = (value: number | null) => {
   if (value === null || Number.isNaN(value)) return '--';
   return Math.abs(value) < 1 ? `${(value * 100).toFixed(2)}%` : value.toFixed(4);
 };
 
+const formatTime = (value: number) => TIME_FORMATTER.format(new Date(value * 1000));
+const formatMoney = (value: number) => MONEY_FORMATTER.format(value);
+
 const EQUITY_CHART_WIDTH = 900;
 const EQUITY_CHART_HEIGHT = 240;
 
+type EquityChartPoint = EquityPoint & {
+  x: number;
+  y: number;
+};
+
 function EquityChart({ points }: { points: EquityPoint[] }) {
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const chart = useMemo(() => {
+    if (!points.length) {
+      return {
+        chartPoints: [] as EquityChartPoint[],
+        polyline: '',
+      };
+    }
+
+    const min = Math.min(...points.map((point) => point.equity));
+    const max = Math.max(...points.map((point) => point.equity));
+    const span = max - min || 1;
+    const chartPoints = points.map((point, index) => {
+      const x = (index / Math.max(1, points.length - 1)) * EQUITY_CHART_WIDTH;
+      const y = EQUITY_CHART_HEIGHT - ((point.equity - min) / span) * EQUITY_CHART_HEIGHT;
+      return { ...point, x, y };
+    });
+
+    return {
+      chartPoints,
+      polyline: chartPoints.map((point) => `${point.x},${point.y}`).join(' '),
+    };
+  }, [points]);
+
   if (!points.length) return <Empty description="No equity data" />;
-  const width = EQUITY_CHART_WIDTH;
-  const height = EQUITY_CHART_HEIGHT;
-  const min = Math.min(...points.map((point) => point.equity));
-  const max = Math.max(...points.map((point) => point.equity));
-  const span = max - min || 1;
-  const polyline = points
-    .map((point, index) => {
-      const x = (index / Math.max(1, points.length - 1)) * width;
-      const y = height - ((point.equity - min) / span) * height;
-      return `${x},${y}`;
-    })
-    .join(' ');
+
+  const activePoint = activeIndex === null ? null : (chart.chartPoints[activeIndex] ?? null);
+
+  const updateActivePoint = (event: MouseEvent<HTMLDivElement>) => {
+    if (chart.chartPoints.length <= 1) {
+      setActiveIndex(0);
+      return;
+    }
+    const rect = event.currentTarget.getBoundingClientRect();
+    const ratio = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
+    setActiveIndex(Math.round(ratio * (chart.chartPoints.length - 1)));
+  };
 
   return (
-    <svg className="equity-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Equity curve">
-      <polyline fill="none" points={polyline} stroke="#38bdf8" strokeLinecap="round" strokeWidth="3" />
-    </svg>
+    <div
+      className="equity-chart-shell"
+      onMouseLeave={() => setActiveIndex(null)}
+      onMouseMove={updateActivePoint}
+    >
+      <svg
+        className="equity-chart"
+        viewBox={`0 0 ${EQUITY_CHART_WIDTH} ${EQUITY_CHART_HEIGHT}`}
+        role="img"
+        aria-label="Equity curve"
+        preserveAspectRatio="none"
+      >
+        <polyline
+          fill="none"
+          points={chart.polyline}
+          stroke="#38bdf8"
+          strokeLinecap="round"
+          strokeWidth="3"
+        />
+        {activePoint ? (
+          <>
+            <line
+              className="equity-chart__guide"
+              x1={activePoint.x}
+              x2={activePoint.x}
+              y1="0"
+              y2={EQUITY_CHART_HEIGHT}
+            />
+            <circle className="equity-chart__point" cx={activePoint.x} cy={activePoint.y} r="5" />
+          </>
+        ) : null}
+      </svg>
+      {activePoint ? (
+        <Tooltip
+          destroyOnHidden
+          open
+          placement="top"
+          title={
+            <div className="equity-tooltip">
+              <div className="equity-tooltip__time">{formatTime(activePoint.time)}</div>
+              <div className="equity-tooltip__grid">
+                <span>Equity</span>
+                <strong>{formatMoney(activePoint.equity)}</strong>
+                <span>Cash</span>
+                <strong>{formatMoney(activePoint.cash)}</strong>
+                <span>Position</span>
+                <strong>{activePoint.position.toLocaleString('zh-CN')}</strong>
+              </div>
+            </div>
+          }
+        >
+          <span
+            className="equity-chart__active-anchor"
+            style={{
+              left: `${(activePoint.x / EQUITY_CHART_WIDTH) * 100}%`,
+              top: `${(activePoint.y / EQUITY_CHART_HEIGHT) * 100}%`,
+            }}
+          />
+        </Tooltip>
+      ) : null}
+    </div>
   );
 }
 
-const tradeColumns: TableColumnsType<BacktestTrade> = [
+type TradeRow = BacktestTrade & {
+  key: string;
+};
+
+const tradeColumns: TableColumnsType<TradeRow> = [
   {
     title: 'Time',
     dataIndex: 'time',
-    render: (value: number) => new Date(value * 1000).toLocaleString(),
+    render: (value: number) => formatTime(value),
   },
   {
     title: 'Side',
     dataIndex: 'side',
     render: (value: BacktestTrade['side']) => (
-      <Typography.Text type={value === 'buy' ? 'danger' : 'success'}>
-        {value}
-      </Typography.Text>
+      <Typography.Text type={value === 'buy' ? 'danger' : 'success'}>{value}</Typography.Text>
     ),
   },
   {
@@ -93,20 +202,36 @@ const tradeColumns: TableColumnsType<BacktestTrade> = [
 export default function BacktestPage() {
   const dispatch = useAppDispatch();
   const state = useAppSelector((store) => store.backtest);
+  const [tradePagination, setTradePagination] = useState({ current: 1, pageSize: 10 });
+
+  const tradeRows = useMemo<TradeRow[]>(
+    () =>
+      state.result?.trades.map((trade, index) => ({
+        ...trade,
+        key: `${index}-${trade.time}-${trade.side}`,
+      })) ?? [],
+    [state.result],
+  );
 
   useEffect(() => {
     void dispatch(fetchBacktestOptions());
   }, [dispatch]);
 
+  useEffect(() => {
+    setTradePagination((pagination) => ({ ...pagination, current: 1 }));
+  }, [state.result]);
+
   const submit = () => {
     if (!state.selectedSymbol || !state.selectedStrategy) return;
-    void dispatch(runBacktest({
-      symbol: state.selectedSymbol,
-      strategy: state.selectedStrategy,
-      start_time: state.startTime || null,
-      end_time: state.endTime || null,
-      metrics: state.selectedMetrics,
-    }));
+    void dispatch(
+      runBacktest({
+        symbol: state.selectedSymbol,
+        strategy: state.selectedStrategy,
+        start_time: state.startTime || null,
+        end_time: state.endTime || null,
+        metrics: state.selectedMetrics,
+      }),
+    );
   };
 
   return (
@@ -115,15 +240,15 @@ export default function BacktestPage() {
         <Col xs={24} lg={7}>
           <Card
             className="tool-card"
-            extra={(
+            extra={
               <Button
                 icon={<ReloadOutlined spin={state.loadingOptions} />}
                 onClick={() => void dispatch(fetchBacktestOptions())}
               />
-            )}
+            }
             title="Backtest"
           >
-            <Space direction="vertical" size={14} className="full-width">
+            <Space orientation="vertical" size={14} className="full-width">
               <div>
                 <Typography.Text type="secondary">Strategy</Typography.Text>
                 <Select
@@ -204,11 +329,11 @@ export default function BacktestPage() {
         <Col xs={24} lg={17}>
           <Card
             className="result-card"
+            extra={state.result ? `${state.result.symbol} . ${tradeRows.length} trades` : null}
             title="Results"
-            extra={state.result ? `${state.result.symbol} . ${state.result.trades.length} trades` : null}
           >
             {state.result ? (
-              <Space direction="vertical" size={16} className="full-width">
+              <Space orientation="vertical" size={16} className="full-width">
                 <EquityChart points={state.result.equity_curve} />
 
                 <Row gutter={[12, 12]}>
@@ -223,9 +348,18 @@ export default function BacktestPage() {
 
                 <Table
                   columns={tradeColumns}
-                  dataSource={state.result.trades.slice(-80)}
-                  pagination={{ pageSize: 10, size: 'small' }}
-                  rowKey={(trade, index) => `${trade.time}-${trade.side}-${index}`}
+                  dataSource={tradeRows}
+                  pagination={{
+                    current: tradePagination.current,
+                    onChange: (current, pageSize) => setTradePagination({ current, pageSize }),
+                    pageSize: tradePagination.pageSize,
+                    pageSizeOptions: ['10', '20', '50', '100'],
+                    showSizeChanger: true,
+                    showTotal: (total, range) => `${range[0]}-${range[1]} / ${total}`,
+                    size: 'small',
+                    total: tradeRows.length,
+                  }}
+                  rowKey="key"
                   scroll={{ x: 720 }}
                   size="small"
                 />

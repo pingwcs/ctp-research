@@ -1,5 +1,10 @@
-import { ExperimentOutlined, LineChartOutlined } from '@ant-design/icons';
-import { Card, Col, Row, Space, Typography } from 'antd';
+import ExperimentOutlined from '@ant-design/icons/ExperimentOutlined';
+import LineChartOutlined from '@ant-design/icons/LineChartOutlined';
+import Card from 'antd/es/card';
+import Col from 'antd/es/col';
+import Row from 'antd/es/row';
+import Space from 'antd/es/space';
+import Typography from 'antd/es/typography';
 import { Link } from 'react-router-dom';
 
 const modules = [

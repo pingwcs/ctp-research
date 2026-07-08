@@ -19,10 +19,96 @@ interface RefBox<T> {
   current: T;
 }
 
+type TooltipValueKey = 'open' | 'high' | 'low' | 'close' | 'volume';
+
+interface TooltipView {
+  time: HTMLDivElement;
+  values: Record<TooltipValueKey, HTMLElement>;
+  pendingPosition: {
+    point: Point;
+    container: HTMLDivElement;
+  } | null;
+  rafId: number | null;
+}
+
+const tooltipViews = new WeakMap<HTMLDivElement, TooltipView>();
+const valueRows: Array<[label: string, key: TooltipValueKey]> = [
+  ['Open', 'open'],
+  ['High', 'high'],
+  ['Low', 'low'],
+  ['Close', 'close'],
+  ['Vol', 'volume'],
+];
+
+function ensureTooltipView(tooltip: HTMLDivElement) {
+  const existingView = tooltipViews.get(tooltip);
+  if (existingView) return existingView;
+
+  const time = document.createElement('div');
+  time.className = 'chart-tooltip__time';
+
+  const grid = document.createElement('div');
+  grid.className = 'chart-tooltip__grid';
+
+  const values = {} as Record<TooltipValueKey, HTMLElement>;
+  valueRows.forEach(([label, key]) => {
+    const labelNode = document.createElement('span');
+    const valueNode = document.createElement('strong');
+
+    labelNode.textContent = label;
+    grid.append(labelNode, valueNode);
+    values[key] = valueNode;
+  });
+
+  tooltip.replaceChildren(time, grid);
+
+  const view: TooltipView = {
+    time,
+    values,
+    pendingPosition: null,
+    rafId: null,
+  };
+  tooltipViews.set(tooltip, view);
+  return view;
+}
+
+function scheduleTooltipPosition(
+  tooltip: HTMLDivElement,
+  view: TooltipView,
+  point: Point,
+  container: HTMLDivElement,
+) {
+  view.pendingPosition = { point, container };
+  if (view.rafId !== null) return;
+
+  view.rafId = requestAnimationFrame(() => {
+    view.rafId = null;
+    const pending = view.pendingPosition;
+    if (!pending) return;
+
+    const { clientHeight: height, clientWidth: width } = pending.container;
+    const maxLeft = Math.max(TOOLTIP_PAD, width - TOOLTIP_MIN_WIDTH - TOOLTIP_PAD);
+    const maxTop = Math.max(TOOLTIP_PAD, height - TOOLTIP_MIN_HEIGHT - TOOLTIP_PAD);
+    const left = Math.min(Math.max(pending.point.x + TOOLTIP_OFFSET, TOOLTIP_PAD), maxLeft);
+    const top = Math.min(Math.max(pending.point.y + TOOLTIP_OFFSET, TOOLTIP_PAD), maxTop);
+
+    tooltip.style.transform = `translate(${left}px, ${top}px)`;
+    tooltip.style.opacity = '1';
+  });
+}
+
 export function hideKLineTooltip(tooltip: HTMLDivElement | null) {
-  if (tooltip) {
-    tooltip.style.opacity = '0';
+  if (!tooltip) return;
+
+  const view = tooltipViews.get(tooltip);
+  if (view?.rafId !== null && view?.rafId !== undefined) {
+    cancelAnimationFrame(view.rafId);
+    view.rafId = null;
   }
+  if (view) {
+    view.pendingPosition = null;
+  }
+  tooltip.style.opacity = '0';
 }
 
 export function renderKLineTooltip(
@@ -34,33 +120,21 @@ export function renderKLineTooltip(
 ) {
   if (!tooltip || !candle || !point || !container) return;
 
-  const toneClass = candle.close >= candle.open ? 'is-up' : 'is-down';
-  tooltip.className = `chart-tooltip ${toneClass}`;
-  tooltip.innerHTML = `
-    <div class="chart-tooltip__time">${formatChartTime(candle.time, language)}</div>
-    <div class="chart-tooltip__grid">
-      <span>Open</span><strong>${formatChartNumber(candle.open, language)}</strong>
-      <span>High</span><strong>${formatChartNumber(candle.high, language)}</strong>
-      <span>Low</span><strong>${formatChartNumber(candle.low, language)}</strong>
-      <span>Close</span><strong>${formatChartNumber(candle.close, language)}</strong>
-      <span>Vol</span><strong>${formatChartVolume(candle.volume, language)}</strong>
-    </div>
-  `;
+  const view = ensureTooltipView(tooltip);
+  const isUp = candle.close >= candle.open;
 
-  const { width, height } = container.getBoundingClientRect();
-  const tooltipWidth = tooltip.offsetWidth || TOOLTIP_MIN_WIDTH;
-  const tooltipHeight = tooltip.offsetHeight || TOOLTIP_MIN_HEIGHT;
-  const left = Math.min(
-    Math.max(point.x + TOOLTIP_OFFSET, TOOLTIP_PAD),
-    width - tooltipWidth - TOOLTIP_PAD,
-  );
-  const top = Math.min(
-    Math.max(point.y + TOOLTIP_OFFSET, TOOLTIP_PAD),
-    height - tooltipHeight - TOOLTIP_PAD,
-  );
+  tooltip.classList.add('chart-tooltip');
+  tooltip.classList.toggle('is-up', isUp);
+  tooltip.classList.toggle('is-down', !isUp);
 
-  tooltip.style.transform = `translate(${left}px, ${top}px)`;
-  tooltip.style.opacity = '1';
+  view.time.textContent = formatChartTime(candle.time, language);
+  view.values.open.textContent = formatChartNumber(candle.open, language);
+  view.values.high.textContent = formatChartNumber(candle.high, language);
+  view.values.low.textContent = formatChartNumber(candle.low, language);
+  view.values.close.textContent = formatChartNumber(candle.close, language);
+  view.values.volume.textContent = formatChartVolume(candle.volume, language);
+
+  scheduleTooltipPosition(tooltip, view, point, container);
 }
 
 export function createKLineCrosshairHandler(

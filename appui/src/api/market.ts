@@ -35,6 +35,6 @@ export interface KLineRequest {
   limit?: number;
 }
 
-export function fetchKLine(params: KLineRequest) {
-  return http.get<KLineResponse>(API_ROUTES.marketKline, { params });
+export function fetchKLine(params: KLineRequest, signal?: AbortSignal) {
+  return http.get<KLineResponse>(API_ROUTES.marketKline, { params, signal });
 }

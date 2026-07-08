@@ -71,13 +71,18 @@ export function toVolumeData(
 export function toMaData(candles: Candle[], windowSize: number) {
   // Use the available leading bars before a full window exists so the MA
   // overlay starts at the first candle instead of appearing later.
+  let rollingSum = 0;
+
   return candles.map((item, index) => {
-    const start = Math.max(0, index - windowSize + 1);
-    const sample = candles.slice(start, index + 1);
-    const value = sample.reduce((sum, candle) => sum + candle.close, 0) / sample.length;
+    rollingSum += item.close;
+    if (index >= windowSize) {
+      rollingSum -= candles[index - windowSize].close;
+    }
+
+    const sampleSize = Math.min(index + 1, windowSize);
     return {
       time: toUtcTimestamp(item.time),
-      value,
+      value: rollingSum / sampleSize,
     };
   });
 }

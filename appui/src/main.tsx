@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { ConfigProvider, theme } from 'antd';
+import ConfigProvider from 'antd/es/config-provider';
+import theme from 'antd/es/theme';
 import 'antd/dist/reset.css';
 import { Provider } from 'react-redux';
 import { BrowserRouter } from 'react-router-dom';

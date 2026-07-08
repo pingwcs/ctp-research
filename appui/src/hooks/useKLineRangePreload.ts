@@ -7,6 +7,14 @@ export interface LogicalRangeLike {
   to: number;
 }
 
+type PanDirection = 'left' | 'right';
+
+interface VisibleWindowSnapshot {
+  center: number;
+  left: number;
+  right: number;
+}
+
 interface UseKLineRangePreloadParams {
   offset: number;
   total: number;
@@ -14,6 +22,30 @@ interface UseKLineRangePreloadParams {
   onRequestRange?: (left: number, right: number) => void;
   resetKey?: string;
   suppressRef?: MutableRefObject<boolean>;
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function choosePanDirection(
+  needLeft: boolean,
+  needRight: boolean,
+  leftDistance: number,
+  rightDistance: number,
+  previousWindow: VisibleWindowSnapshot | null,
+  visibleCenter: number,
+): PanDirection {
+  if (needLeft && needRight) {
+    if (previousWindow) {
+      if (visibleCenter < previousWindow.center) return 'left';
+      if (visibleCenter > previousWindow.center) return 'right';
+    }
+
+    return leftDistance <= rightDistance ? 'left' : 'right';
+  }
+
+  return needLeft ? 'left' : 'right';
 }
 
 export function useKLineRangePreload({
@@ -31,6 +63,7 @@ export function useKLineRangePreload({
     total,
   });
   const lastEmittedRangeKeyRef = useRef('');
+  const lastVisibleWindowRef = useRef<VisibleWindowSnapshot | null>(null);
 
   latestRef.current = {
     candlesLength,
@@ -41,6 +74,7 @@ export function useKLineRangePreload({
 
   useEffect(() => {
     lastEmittedRangeKeyRef.current = '';
+    lastVisibleWindowRef.current = null;
   }, [resetKey, total]);
 
   return useCallback(
@@ -62,23 +96,51 @@ export function useKLineRangePreload({
       const globalLeft = loadedOffset + localLeft;
       const globalRight = loadedOffset + localRight;
 
-      if (globalLeft < 0 || globalRight >= currentTotal) return;
+      if (globalRight < 0 || globalLeft >= currentTotal) return;
 
+      const visibleLeft = clamp(globalLeft, 0, currentTotal - 1);
+      const visibleRight = clamp(globalRight, 0, currentTotal - 1);
       const loadedRight = loadedOffset + loadedLength - 1;
-      const needLeft = globalLeft - loadedOffset <= PRELOAD_BARS / 2 && loadedOffset > 0;
+      const leftDistance = visibleLeft - loadedOffset;
+      const rightDistance = loadedRight - visibleRight;
+      const needLeft = leftDistance <= PRELOAD_BARS / 2 && loadedOffset > 0;
       const needRight =
-        loadedRight - globalRight <= PRELOAD_BARS / 2 && loadedRight < currentTotal - 1;
+        rightDistance <= PRELOAD_BARS / 2 && loadedRight < currentTotal - 1;
+
+      const visibleCenter = (visibleLeft + visibleRight) / 2;
+      const previousVisibleWindow = lastVisibleWindowRef.current;
+      lastVisibleWindowRef.current = {
+        center: visibleCenter,
+        left: visibleLeft,
+        right: visibleRight,
+      };
 
       if (!needLeft && !needRight) return;
 
-      let targetLeft = Math.max(0, globalLeft - PRELOAD_BARS);
-      let targetRight = Math.min(currentTotal - 1, globalRight + PRELOAD_BARS);
+      const direction = choosePanDirection(
+        needLeft,
+        needRight,
+        leftDistance,
+        rightDistance,
+        previousVisibleWindow,
+        visibleCenter,
+      );
+      const windowSize = Math.min(MAX_WINDOW, currentTotal);
+      const maxOffset = Math.max(0, currentTotal - windowSize);
+      const requestStep = Math.max(1, Math.min(PRELOAD_BARS, windowSize));
+      let targetLeft =
+        loadedOffset + (direction === 'left' ? -requestStep : requestStep);
 
-      if (targetRight - targetLeft + 1 > MAX_WINDOW) {
-        const center = Math.floor((globalLeft + globalRight) / 2);
-        targetLeft = Math.max(0, center - Math.floor(MAX_WINDOW / 2));
-        targetRight = Math.min(currentTotal - 1, targetLeft + MAX_WINDOW - 1);
+      if (direction === 'left') {
+        targetLeft = Math.min(targetLeft, visibleLeft);
+      } else {
+        targetLeft = Math.max(targetLeft, visibleRight - windowSize + 1);
       }
+
+      targetLeft = clamp(Math.round(targetLeft), 0, maxOffset);
+      const targetRight = Math.min(currentTotal - 1, targetLeft + windowSize - 1);
+
+      if (targetLeft === loadedOffset && targetRight === loadedRight) return;
 
       const combinedKey = `${targetLeft}:${targetRight}`;
       if (combinedKey === lastEmittedRangeKeyRef.current) return;

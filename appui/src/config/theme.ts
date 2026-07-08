@@ -1,4 +1,4 @@
-import type { ThemeConfig } from 'antd';
+import type { ThemeConfig } from 'antd/es/config-provider';
 
 export const CHART_PALETTE = {
   china: {

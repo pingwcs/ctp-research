@@ -1,14 +1,19 @@
-import { ExperimentOutlined, HomeOutlined, LineChartOutlined } from '@ant-design/icons';
-import { Layout, Menu, Typography } from 'antd';
-import { useEffect } from 'react';
+import ExperimentOutlined from '@ant-design/icons/ExperimentOutlined';
+import HomeOutlined from '@ant-design/icons/HomeOutlined';
+import LineChartOutlined from '@ant-design/icons/LineChartOutlined';
+import Layout from 'antd/es/layout';
+import Menu from 'antd/es/menu';
+import Typography from 'antd/es/typography';
+import { lazy, Suspense, useEffect } from 'react';
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 
-import BacktestPage from './pages/BacktestPage';
-import HomePage from './pages/HomePage';
-import KLinePage from './pages/KLinePage';
 import { useAppSelector } from './store';
 
 const { Header, Content } = Layout;
+
+const HomePage = lazy(() => import('./pages/HomePage'));
+const KLinePage = lazy(() => import('./pages/KLinePage'));
+const BacktestPage = lazy(() => import('./pages/BacktestPage'));
 
 const navItems = [
   { key: '/', label: 'Home', icon: <HomeOutlined /> },
@@ -41,12 +46,14 @@ export default function App() {
         />
       </Header>
       <Content className="app-content">
-        <Routes>
-          <Route element={<HomePage />} path="/" />
-          <Route element={<KLinePage />} path="/kline" />
-          <Route element={<BacktestPage />} path="/backtest" />
-          <Route element={<Navigate replace to="/" />} path="*" />
-        </Routes>
+        <Suspense fallback={<div className="route-loading" />}>
+          <Routes>
+            <Route element={<HomePage />} path="/" />
+            <Route element={<KLinePage />} path="/kline" />
+            <Route element={<BacktestPage />} path="/backtest" />
+            <Route element={<Navigate replace to="/" />} path="*" />
+          </Routes>
+        </Suspense>
       </Content>
     </Layout>
   );

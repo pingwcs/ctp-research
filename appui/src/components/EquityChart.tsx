@@ -1,4 +1,5 @@
-import { Empty, Tooltip } from 'antd';
+import Empty from 'antd/es/empty';
+import Tooltip from 'antd/es/tooltip';
 import { useMemo, useState, type MouseEvent } from 'react';
 
 import type { EquityPoint } from '../api/backtest';
@@ -23,6 +24,7 @@ const MONEY_FORMAT_OPTIONS: Intl.NumberFormatOptions = {
 
 const EQUITY_CHART_WIDTH = 900;
 const EQUITY_CHART_HEIGHT = 240;
+const MAX_POINTS_PER_PIXEL = 2;
 
 type EquityChartPoint = EquityPoint & {
   x: number;
@@ -35,6 +37,93 @@ function formatTime(value: number, formatter: Intl.DateTimeFormat) {
 
 function formatMoney(value: number, formatter: Intl.NumberFormat) {
   return formatter.format(value);
+}
+
+function getEquityDomain(points: EquityPoint[]) {
+  let min = points[0].equity;
+  let max = points[0].equity;
+
+  for (let index = 1; index < points.length; index += 1) {
+    const { equity } = points[index];
+    if (equity < min) min = equity;
+    if (equity > max) max = equity;
+  }
+
+  return { min, span: max - min || 1 };
+}
+
+function createChartPoint(
+  point: EquityPoint,
+  index: number,
+  total: number,
+  min: number,
+  span: number,
+): EquityChartPoint {
+  const x = (index / Math.max(1, total - 1)) * EQUITY_CHART_WIDTH;
+  const y = EQUITY_CHART_HEIGHT - ((point.equity - min) / span) * EQUITY_CHART_HEIGHT;
+  return { ...point, x, y };
+}
+
+function createSampledChartPoints(points: EquityPoint[], min: number, span: number) {
+  const total = points.length;
+  const maxPoints = EQUITY_CHART_WIDTH * MAX_POINTS_PER_PIXEL;
+  if (total <= maxPoints) {
+    return points.map((point, index) => createChartPoint(point, index, total, min, span));
+  }
+
+  const sampled: EquityChartPoint[] = [];
+  const lastIndex = total - 1;
+  const bucketSize = total / EQUITY_CHART_WIDTH;
+
+  const addPoint = (index: number) => {
+    const previousPoint = sampled[sampled.length - 1];
+    if (previousPoint?.time === points[index].time) return;
+    sampled.push(createChartPoint(points[index], index, total, min, span));
+  };
+
+  addPoint(0);
+  for (
+    let bucketStart = 1;
+    bucketStart < lastIndex;
+    bucketStart = Math.ceil(bucketStart + bucketSize)
+  ) {
+    const bucketEnd = Math.min(lastIndex, Math.ceil(bucketStart + bucketSize));
+    let minIndex = bucketStart;
+    let maxIndex = bucketStart;
+
+    for (let index = bucketStart + 1; index < bucketEnd; index += 1) {
+      if (points[index].equity < points[minIndex].equity) minIndex = index;
+      if (points[index].equity > points[maxIndex].equity) maxIndex = index;
+    }
+
+    if (minIndex < maxIndex) {
+      addPoint(minIndex);
+      addPoint(maxIndex);
+    } else {
+      addPoint(maxIndex);
+      addPoint(minIndex);
+    }
+  }
+  addPoint(lastIndex);
+
+  return sampled;
+}
+
+function findNearestPointIndex(points: EquityChartPoint[], x: number) {
+  let low = 0;
+  let high = points.length - 1;
+
+  while (low < high) {
+    const middle = Math.floor((low + high) / 2);
+    if (points[middle].x < x) {
+      low = middle + 1;
+    } else {
+      high = middle;
+    }
+  }
+
+  const previous = Math.max(0, low - 1);
+  return Math.abs(points[previous].x - x) <= Math.abs(points[low].x - x) ? previous : low;
 }
 
 export default function EquityChart({
@@ -61,14 +150,8 @@ export default function EquityChart({
       };
     }
 
-    const min = Math.min(...points.map((point) => point.equity));
-    const max = Math.max(...points.map((point) => point.equity));
-    const span = max - min || 1;
-    const chartPoints = points.map((point, index) => {
-      const x = (index / Math.max(1, points.length - 1)) * EQUITY_CHART_WIDTH;
-      const y = EQUITY_CHART_HEIGHT - ((point.equity - min) / span) * EQUITY_CHART_HEIGHT;
-      return { ...point, x, y };
-    });
+    const { min, span } = getEquityDomain(points);
+    const chartPoints = createSampledChartPoints(points, min, span);
 
     return {
       chartPoints,
@@ -88,7 +171,7 @@ export default function EquityChart({
 
     const rect = event.currentTarget.getBoundingClientRect();
     const ratio = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
-    setActiveIndex(Math.round(ratio * (chart.chartPoints.length - 1)));
+    setActiveIndex(findNearestPointIndex(chart.chartPoints, ratio * EQUITY_CHART_WIDTH));
   };
 
   return (

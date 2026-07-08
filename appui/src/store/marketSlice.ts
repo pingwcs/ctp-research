@@ -23,6 +23,8 @@ interface MarketState {
   lastLoadedTime: number | null;
   // Offset:limit key for suppressing duplicate range requests from chart drags.
   lastRequestedRange: string | null;
+  activeRequestId: string | null;
+  activeRequestKey: string | null;
 }
 
 const initialState: MarketState = {
@@ -36,20 +38,39 @@ const initialState: MarketState = {
   error: null,
   lastLoadedTime: null,
   lastRequestedRange: null,
+  activeRequestId: null,
+  activeRequestKey: null,
 };
 
 export const fetchKLineData = createAsyncThunk<
   KLineResponse,
   KLineRequest,
   { rejectValue: string }
->('market/fetchKLineData', async (request, { rejectWithValue }) => {
+>('market/fetchKLineData', async (request, { rejectWithValue, signal }) => {
   try {
-    return await fetchKLine(request);
+    return await fetchKLine(request, signal);
   } catch (error) {
+    if (signal.aborted) {
+      return rejectWithValue('Request canceled');
+    }
+
     const message = error instanceof Error ? error.message : '网络异常，无法连接行情 API';
     return rejectWithValue(message);
   }
 });
+
+function getKLineRequestKey(request: KLineRequest) {
+  const symbol = request.symbol.trim().toUpperCase();
+  const offset = request.offset ?? 0;
+  const limit = request.limit ?? DEFAULT_KLINE_LIMIT;
+  return `${symbol}:${offset}:${limit}`;
+}
+
+function isActiveRequest(state: MarketState, requestId: string, request: KLineRequest) {
+  return (
+    state.activeRequestId === requestId && state.activeRequestKey === getKLineRequestKey(request)
+  );
+}
 
 const marketSlice = createSlice({
   name: 'market',
@@ -65,11 +86,15 @@ const marketSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      .addCase(fetchKLineData.pending, (state) => {
+      .addCase(fetchKLineData.pending, (state, action) => {
         state.loading = true;
         state.error = null;
+        state.activeRequestId = action.meta.requestId;
+        state.activeRequestKey = getKLineRequestKey(action.meta.arg);
       })
       .addCase(fetchKLineData.fulfilled, (state, action) => {
+        if (!isActiveRequest(state, action.meta.requestId, action.meta.arg)) return;
+
         state.loading = false;
         state.symbol = action.payload.symbol;
         state.candles = action.payload.candles;
@@ -79,10 +104,18 @@ const marketSlice = createSlice({
         state.limit = action.payload.limit;
         state.lastRequestedRange = `${action.payload.offset}:${action.payload.limit}`;
         state.lastLoadedTime = Date.now();
+        state.activeRequestId = null;
+        state.activeRequestKey = null;
       })
       .addCase(fetchKLineData.rejected, (state, action) => {
+        if (!isActiveRequest(state, action.meta.requestId, action.meta.arg)) return;
+
         state.loading = false;
-        state.error = action.payload || action.error.message || '行情数据加载失败';
+        state.activeRequestId = null;
+        state.activeRequestKey = null;
+        if (!action.meta.aborted) {
+          state.error = action.payload || action.error.message || '行情数据加载失败';
+        }
       });
   },
 });

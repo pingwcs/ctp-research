@@ -10,6 +10,7 @@ import {
   Row,
   Select,
   Space,
+  Switch,
   Typography,
 } from 'antd';
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
@@ -19,13 +20,14 @@ import {
   CHART_RANGE_THROTTLE_MS,
   DEFAULT_KLINE_LIMIT,
   MA_COLORS,
-  MAX_WINDOW,
-  PRELOAD_BARS,
+  MA_WINDOW_MAX,
+  MA_WINDOW_MIN,
 } from '../config/chart';
 import {
   setColorScheme,
   setLanguage,
   setMaColor,
+  setMaVisible,
   setMaWindow,
   setPriceScale,
   type CandleColorScheme,
@@ -35,7 +37,7 @@ import {
 import { useResponsiveProfile } from '../hooks/useResponsiveProfile';
 import { fetchKLineData, setSymbol } from '../store/marketSlice';
 import { useAppDispatch, useAppSelector } from '../store';
-import { throttle } from '../utils/throttle';
+import throttle from 'lodash/throttle';
 
 const scaleOptions = [
   { value: 'normal', label: 'Normal' },
@@ -56,8 +58,6 @@ interface RangeRequestState {
   symbol: string;
   total: number;
   loading: boolean;
-  loadedLeft: number;
-  loadedRight: number;
   lastRequestedRange: string | null;
 }
 
@@ -73,8 +73,6 @@ export default function KLinePage() {
     symbol: market.symbol,
     total: market.total,
     loading: market.loading,
-    loadedLeft: market.offset,
-    loadedRight: market.offset + Math.max(0, market.candles.length - 1),
     lastRequestedRange: market.lastRequestedRange,
   });
 
@@ -87,18 +85,9 @@ export default function KLinePage() {
       symbol: market.symbol,
       total: market.total,
       loading: market.loading,
-      loadedLeft: market.offset,
-      loadedRight: market.offset + Math.max(0, market.candles.length - 1),
       lastRequestedRange: market.lastRequestedRange,
     };
-  }, [
-    market.candles.length,
-    market.lastRequestedRange,
-    market.loading,
-    market.offset,
-    market.symbol,
-    market.total,
-  ]);
+  }, [market.lastRequestedRange, market.loading, market.symbol, market.total]);
 
   useEffect(() => {
     if (!market.loading) {
@@ -126,23 +115,18 @@ export default function KLinePage() {
     const state = requestStateRef.current;
     if (!state.total || state.loading || rangeRequestInFlightRef.current) return;
 
-    const targetLeft = Math.max(0, left - PRELOAD_BARS);
-    const targetRight = Math.min(state.total - 1, right + PRELOAD_BARS);
-    const needsData = targetLeft < state.loadedLeft || targetRight > state.loadedRight;
-    if (!needsData) return;
-
-    const nextOffset = Math.max(0, targetLeft);
-    const nextLimit = Math.min(MAX_WINDOW, targetRight - nextOffset + 1);
-    const requestKey = `${nextOffset}:${nextLimit}`;
+    // The chart emits a global preload window; the page de-duplicates it
+    // before hitting the market API so wheel/drag gestures stay cheap.
+    const requestKey = `${left}:${right - left + 1}`;
     if (pendingRangeRef.current === requestKey || state.lastRequestedRange === requestKey) return;
 
     pendingRangeRef.current = requestKey;
     rangeRequestInFlightRef.current = true;
-    void dispatch(fetchKLineData({ symbol: state.symbol, offset: nextOffset, limit: nextLimit }));
+    void dispatch(fetchKLineData({ symbol: state.symbol, offset: left, limit: right - left + 1 }));
   }, [dispatch]);
 
   const throttledRequestRange = useMemo(
-    () => throttle(requestRange, CHART_RANGE_THROTTLE_MS),
+    () => throttle(requestRange, CHART_RANGE_THROTTLE_MS, { trailing: false }),
     [requestRange],
   );
 
@@ -157,7 +141,7 @@ export default function KLinePage() {
               <Typography.Title level={3}>Futures K-Line</Typography.Title>
               <Typography.Text type="secondary">
                 {market.candles.length
-                  ? `${market.symbol} · ${market.total.toLocaleString()} total bars`
+                  ? `${market.symbol} / ${market.total.toLocaleString()} total bars`
                   : market.symbol}
               </Typography.Text>
             </Col>
@@ -174,7 +158,7 @@ export default function KLinePage() {
                 </Form.Item>
                 <Form.Item>
                   <Button
-                    disabled={market.loading}
+                    // disabled={market.loading}
                     htmlType="submit"
                     icon={<SearchOutlined />}
                     type="primary"
@@ -182,8 +166,8 @@ export default function KLinePage() {
                 </Form.Item>
                 <Form.Item>
                   <Button
-                    disabled={market.loading}
-                    icon={<ReloadOutlined spin={market.loading} />}
+                    // disabled={market.loading}
+                    icon={<ReloadOutlined />}
                     onClick={refresh}
                   />
                 </Form.Item>
@@ -222,22 +206,33 @@ export default function KLinePage() {
               />
             </Col>
             <Col xs={12} md={6} xl={4}>
+              <Typography.Text type="secondary">MA</Typography.Text>
+              <div>
+                <Switch
+                  checked={config.maVisible}
+                  onChange={(checked) => dispatch(setMaVisible(checked))}
+                />
+              </div>
+            </Col>
+            <Col xs={12} md={6} xl={4}>
               <Typography.Text type="secondary">MA Window</Typography.Text>
               <InputNumber
                 className="full-width"
-                max={30}
-                min={1}
+                disabled={!config.maVisible}
+                max={MA_WINDOW_MAX}
+                min={MA_WINDOW_MIN}
                 onChange={(value) => dispatch(setMaWindow(Number(value || 1)))}
                 value={config.maWindow}
               />
             </Col>
-            <Col xs={24} xl={8}>
+            <Col xs={24} xl={4}>
               <Typography.Text type="secondary">MA Color</Typography.Text>
               <Space className="ma-color-row" wrap>
                 {MA_COLORS.map((color) => (
                   <Button
                     aria-label={`MA color ${color}`}
                     className={config.maColor === color ? 'color-swatch is-active' : 'color-swatch'}
+                    disabled={!config.maVisible}
                     key={color}
                     onClick={() => dispatch(setMaColor(color))}
                     shape="circle"
@@ -259,6 +254,7 @@ export default function KLinePage() {
           language={config.language}
           loading={market.loading}
           maColor={config.maColor}
+          maVisible={config.maVisible}
           maWindow={config.maWindow}
           markers={market.markers}
           offset={market.offset}
@@ -272,7 +268,7 @@ export default function KLinePage() {
         <div className="page-footer">
           <Typography.Text type="secondary">Data API: /api/market/kline</Typography.Text>
           <Typography.Text type="secondary">
-            {market.lastLoadedAt ? new Date(market.lastLoadedAt).toLocaleString() : ''}
+            {market.lastLoadedTime ? new Date(market.lastLoadedTime).toLocaleString() : ''}
           </Typography.Text>
         </div>
       </Space>

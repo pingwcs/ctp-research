@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useRef, type CSSProperties } from 'react';
-import { Empty, Spin, Typography } from 'antd';
+import { UndoOutlined } from '@ant-design/icons';
+import { useCallback, useEffect, useMemo, useRef, type CSSProperties } from 'react';
+import { Button, Empty, Tooltip, Typography } from 'antd';
 import {
   CandlestickSeries,
   ColorType,
@@ -21,10 +22,20 @@ import {
 
 import type { Candle, TradeMarker } from '../api/market';
 import {
+  CHART_BAR_SPACING,
+  CHART_PRICE_MARGIN_BOTTOM,
+  CHART_PRICE_MARGIN_TOP,
+  CHART_RIGHT_OFFSET,
   CHART_TIME_ZONE,
-  INITIAL_VISIBLE_BARS,
-  MAX_VISIBLE_BARS,
+  MAX_BAR_SPACING,
+  MAX_WINDOW,
+  MIN_BAR_SPACING,
   NUMBER_FORMAT_OPTIONS,
+  PRELOAD_BARS,
+  TOOLTIP_MIN_HEIGHT,
+  TOOLTIP_MIN_WIDTH,
+  TOOLTIP_OFFSET,
+  TOOLTIP_PAD,
   VOLUME_FORMAT_OPTIONS,
 } from '../config/chart';
 import type { ChartViewportConfig } from '../config/responsive';
@@ -41,6 +52,7 @@ interface KLineChartProps {
   language: Language;
   priceScale: PriceScale;
   colorScheme: CandleColorScheme;
+  maVisible: boolean;
   maWindow: number;
   maColor: string;
   chartViewport?: ChartViewportConfig;
@@ -109,10 +121,16 @@ function renderTooltip(
   `;
 
   const { width, height } = container.getBoundingClientRect();
-  const tooltipWidth = tooltip.offsetWidth || 190;
-  const tooltipHeight = tooltip.offsetHeight || 132;
-  const left = Math.min(Math.max(point.x + 16, 8), width - tooltipWidth - 8);
-  const top = Math.min(Math.max(point.y + 16, 8), height - tooltipHeight - 8);
+  const tooltipWidth = tooltip.offsetWidth || TOOLTIP_MIN_WIDTH;
+  const tooltipHeight = tooltip.offsetHeight || TOOLTIP_MIN_HEIGHT;
+  const left = Math.min(
+    Math.max(point.x + TOOLTIP_OFFSET, TOOLTIP_PAD),
+    width - tooltipWidth - TOOLTIP_PAD,
+  );
+  const top = Math.min(
+    Math.max(point.y + TOOLTIP_OFFSET, TOOLTIP_PAD),
+    height - tooltipHeight - TOOLTIP_PAD,
+  );
 
   tooltip.style.transform = `translate(${left}px, ${top}px)`;
   tooltip.style.opacity = '1';
@@ -147,6 +165,8 @@ function toVolumeData(
 }
 
 function toMaData(candles: Candle[], windowSize: number) {
+  // Use the available leading bars before a full window exists so the MA
+  // overlay starts at the first candle instead of appearing later.
   return candles.map((item, index) => {
     const start = Math.max(0, index - windowSize + 1);
     const sample = candles.slice(start, index + 1);
@@ -200,16 +220,18 @@ function createBaseChart(container: HTMLDivElement, language: Language, priceSca
       borderColor: '#27272a',
       mode: priceScale === 'logarithmic' ? PriceScaleMode.Logarithmic : PriceScaleMode.Normal,
       scaleMargins: {
-        top: 0.08,
-        bottom: 0.24,
+        top: CHART_PRICE_MARGIN_TOP,
+        bottom: CHART_PRICE_MARGIN_BOTTOM,
       },
     },
     timeScale: {
       borderColor: '#27272a',
       timeVisible: true,
       secondsVisible: false,
-      rightOffset: 4,
-      barSpacing: 8,
+      rightOffset: CHART_RIGHT_OFFSET,
+      barSpacing: CHART_BAR_SPACING,
+      minBarSpacing: MIN_BAR_SPACING,
+      maxBarSpacing: MAX_BAR_SPACING,
     },
     handleScroll: {
       mouseWheel: true,
@@ -300,49 +322,61 @@ function createCrosshairHandler(
 }
 
 function createVisibleRangeHandler(
-  chart: IChartApi,
   offsetRef: RefBox<number>,
   totalRef: RefBox<number>,
-  rangeCallbackRef: RefBox<((left: number, right: number) => void) | undefined>,
-  maxVisibleBars: number,
+  candlesLengthRef: RefBox<number>,
+  onRequestRange: ((left: number, right: number) => void) | undefined,
+  suppressRef?: RefBox<boolean>,
 ) {
   let lastEmittedRangeKey = '';
 
   return (range: LogicalRangeLike | null) => {
     if (!range) return;
+    if (suppressRef?.current) return;
+
+    const loadedOffset = offsetRef.current;
+    const loadedLength = candlesLengthRef.current;
+    const total = totalRef.current;
+    if (!loadedLength || !total) return;
 
     const localLeft = Math.floor(range.from);
     const localRight = Math.ceil(range.to);
-    const visibleBars = localRight - localLeft + 1;
+    const globalLeft = loadedOffset + localLeft;
+    const globalRight = loadedOffset + localRight;
 
-    if (visibleBars > maxVisibleBars) {
-      chart.timeScale().setVisibleLogicalRange({
-        from: range.to - maxVisibleBars + 1,
-        to: range.to,
-      });
+    // Clamp to data boundaries
+    if (globalLeft < 0) {
+      return;
+    }
+    if (globalRight >= total) {
       return;
     }
 
-    const currentOffset = offsetRef.current;
-    const currentTotal = totalRef.current;
-    const globalLeft = currentOffset + localLeft;
-    const globalRight = currentOffset + localRight;
+    const loadedRight = loadedOffset + loadedLength - 1;
 
-    if (currentTotal > 0 && (globalLeft < 0 || globalRight >= currentTotal)) {
-      chart.timeScale().setVisibleLogicalRange({
-        from: Math.max(0 - currentOffset, range.from),
-        to: Math.min(currentTotal - 1 - currentOffset, range.to),
-      });
-      return;
+    // Trigger preload when visible area has consumed more than half the buffer
+    const needLeft = globalLeft - loadedOffset <= PRELOAD_BARS / 2 && loadedOffset > 0;
+    const needRight = loadedRight - globalRight <= PRELOAD_BARS / 2 && loadedRight < total - 1;
+
+    if (!needLeft && !needRight) return;
+
+    // Build request window: visible range extended by PRELOAD_BARS on each side
+    let targetLeft = Math.max(0, globalLeft - PRELOAD_BARS);
+    let targetRight = Math.min(total - 1, globalRight + PRELOAD_BARS);
+
+    // Cap to MAX_WINDOW, anchored at visible range center
+    if (targetRight - targetLeft + 1 > MAX_WINDOW) {
+      const center = Math.floor((globalLeft + globalRight) / 2);
+      targetLeft = Math.max(0, center - Math.floor(MAX_WINDOW / 2));
+      targetRight = Math.min(total - 1, targetLeft + MAX_WINDOW - 1);
     }
 
-    const rangeKey = `${globalLeft}:${globalRight}`;
-    if (rangeKey === lastEmittedRangeKey) {
-      return;
-    }
-    lastEmittedRangeKey = rangeKey;
+    // Deduplicate by combined key
+    const combinedKey = `${targetLeft}:${targetRight}`;
+    if (combinedKey === lastEmittedRangeKey) return;
+    lastEmittedRangeKey = combinedKey;
 
-    rangeCallbackRef.current?.(globalLeft, globalRight);
+    onRequestRange && onRequestRange(targetLeft, targetRight);
   };
 }
 
@@ -358,6 +392,15 @@ function disposeChart(
   chart.remove();
 }
 
+function captureGlobalRange(
+  chart: IChartApi | null,
+  offset: number,
+): { left: number; right: number } | null {
+  const logical = chart?.timeScale().getVisibleLogicalRange();
+  if (!logical) return null;
+  return { left: offset + Math.floor(logical.from), right: offset + Math.ceil(logical.to) };
+}
+
 export default function KLineChart({
   candles,
   markers,
@@ -368,6 +411,7 @@ export default function KLineChart({
   language,
   priceScale,
   colorScheme,
+  maVisible,
   maWindow,
   maColor,
   chartViewport,
@@ -381,20 +425,25 @@ export default function KLineChart({
   const maSeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
   const markersRef = useRef<MarkerApi | null>(null);
   const candleMapRef = useRef<Map<number, Candle>>(new Map());
-  const rangeCallbackRef = useRef(onRequestRange);
+
   const offsetRef = useRef(offset);
   const totalRef = useRef(total);
+  const candlesLengthRef = useRef(candles.length);
   const languageRef = useRef(language);
-  const initialRangeAppliedRef = useRef(false);
+  const handlerSuppressedRef = useRef(false);
+  const prevOffsetRef = useRef(offset);
 
-  rangeCallbackRef.current = onRequestRange;
   offsetRef.current = offset;
   totalRef.current = total;
+  candlesLengthRef.current = candles.length;
   languageRef.current = language;
 
   const candleData = useMemo(() => toCandleData(candles), [candles]);
   const volumeData = useMemo(() => toVolumeData(candles, colorScheme), [candles, colorScheme]);
-  const maData = useMemo(() => toMaData(candles, maWindow), [candles, maWindow]);
+  const maData = useMemo(
+    () => (maVisible ? toMaData(candles, maWindow) : []),
+    [candles, maVisible, maWindow],
+  );
   const markerData = useMemo(() => toSeriesMarkers(markers), [markers]);
   const chartStyle = useMemo<CSSProperties>(
     () => ({
@@ -405,6 +454,9 @@ export default function KLineChart({
     }),
     [chartViewport],
   );
+  const resetTimeScale = useCallback(() => {
+    chartRef.current?.timeScale().resetTimeScale();
+  }, []);
 
   useEffect(() => {
     if (!containerRef.current) return undefined;
@@ -422,11 +474,11 @@ export default function KLineChart({
       languageRef,
     );
     const onVisibleRangeChange = createVisibleRangeHandler(
-      chart,
       offsetRef,
       totalRef,
-      rangeCallbackRef,
-      MAX_VISIBLE_BARS,
+      candlesLengthRef,
+      onRequestRange,
+      handlerSuppressedRef,
     );
 
     chart.subscribeCrosshairMove(onCrosshairMove);
@@ -475,8 +527,8 @@ export default function KLineChart({
   }, [language]);
 
   useEffect(() => {
-    maSeriesRef.current?.applyOptions({ color: maColor });
-  }, [maColor]);
+    maSeriesRef.current?.applyOptions({ color: maColor, visible: maVisible });
+  }, [maColor, maVisible]);
 
   useEffect(() => {
     candleMapRef.current = new Map(candles.map((item) => [item.time, item]));
@@ -489,44 +541,67 @@ export default function KLineChart({
       return;
     }
 
+    const chart = chartRef.current;
+    const oldOffset = prevOffsetRef.current;
+    const newOffset = offset;
+
+    // Capture current visible global range before data swap
+    const prevGlobalRange = captureGlobalRange(chart, oldOffset);
+
+    // Suppress the range-change handler during setData so it doesn't
+    // fire on intermediate logical ranges before we restore the view.
+    handlerSuppressedRef.current = true;
+
     candleSeriesRef.current.setData(candleData);
     volumeSeriesRef.current.setData(volumeData);
     maSeriesRef.current.setData(maData);
     markersRef.current.setMarkers(markerData);
 
-    if (candles.length && !initialRangeAppliedRef.current) {
-      const to = candles.length - 1;
-      chartRef.current?.timeScale().setVisibleLogicalRange({
-        from: Math.max(0, to - INITIAL_VISIBLE_BARS + 1),
-        to,
-      });
-      initialRangeAppliedRef.current = true;
+    handlerSuppressedRef.current = false;
+
+    // Restore visible range at the same global position
+    if (chart && prevGlobalRange && oldOffset !== newOffset) {
+      const newFrom = Math.max(0, prevGlobalRange.left - newOffset);
+      const newTo = Math.min(candles.length - 1, prevGlobalRange.right - newOffset);
+      if (newFrom < newTo && newFrom < candles.length) {
+        chart.timeScale().setVisibleLogicalRange({ from: newFrom, to: newTo });
+      }
     }
+
+    // Always keep prevOffsetRef in sync with current offset
+    prevOffsetRef.current = newOffset;
   }, [candles, candleData, volumeData, maData, markerData]);
 
   return (
     <div className="chart-shell" style={chartStyle}>
       <div className="chart-title">
-        <div>
+        <div className="chart-title__main">
           <Typography.Text className="chart-title__symbol">{symbol}</Typography.Text>
           <Typography.Text className="chart-title__meta" type="secondary">
-            5min OHLCV · {offset + 1}-{offset + candles.length} / {total || candles.length}
+            5min OHLCV . {offset + 1}-{offset + candles.length} / {total || candles.length}
           </Typography.Text>
         </div>
-        <Typography.Text className="chart-title__status" type="secondary">
-          {loading ? 'Loading' : `${candles.length} bars · MA${maWindow}`}
-        </Typography.Text>
+        <div className="chart-title__actions">
+          <Typography.Text className="chart-title__status" type="secondary">
+            {`${candles.length} bars . ${maVisible ? `MA${maWindow}` : 'MA off'}`}
+          </Typography.Text>
+          <Tooltip title="Restore zoom">
+            <Button
+              aria-label="Restore zoom"
+              className="chart-icon-button"
+              icon={<UndoOutlined />}
+              onClick={resetTimeScale}
+              size="small"
+              type="text"
+            />
+          </Tooltip>
+        </div>
       </div>
       <div className="chart-stage" ref={containerRef}>
         <div className="chart-tooltip" ref={tooltipRef} />
         {!candles.length && !loading ? (
           <div className="chart-empty">
             <Empty description="No market data" image={Empty.PRESENTED_IMAGE_SIMPLE} />
-          </div>
-        ) : null}
-        {loading ? (
-          <div className="chart-loading">
-            <Spin tip="Loading" />
           </div>
         ) : null}
       </div>

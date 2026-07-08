@@ -6,9 +6,12 @@ import { Provider } from 'react-redux';
 import { BrowserRouter } from 'react-router-dom';
 
 import App from './App';
+import { installResponsiveRootFont } from './config/responsive';
 import { ANT_THEME } from './config/theme';
 import { store } from './store';
 import './styles/index.scss';
+
+installResponsiveRootFont();
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>

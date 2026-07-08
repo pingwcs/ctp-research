@@ -6,7 +6,7 @@ const modules = [
   {
     to: '/kline',
     title: 'KLine Module',
-    description: 'Candlestick viewer with virtual loading, MA overlay and chart controls.',
+    description: 'Candlestick viewer with preloaded history, MA overlay and chart controls.',
     icon: <LineChartOutlined />,
   },
   {

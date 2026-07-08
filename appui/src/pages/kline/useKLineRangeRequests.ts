@@ -39,7 +39,6 @@ export function useKLineRangeRequests({
   const activeRequestKeyRef = useRef<string | null>(null);
   const scheduledAbortRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const initialSymbolRef = useRef(symbol);
-  const initialRequestKeyRef = useRef<string | null>(null);
   const pendingRangeRef = useRef<string | null>(null);
   const rangeRequestInFlightRef = useRef(false);
   const requestStateRef = useRef<RangeRequestSnapshot>({
@@ -107,11 +106,6 @@ export function useKLineRangeRequests({
 
   useEffect(() => {
     const initialRequest = { symbol: initialSymbolRef.current, limit: DEFAULT_KLINE_LIMIT };
-    const initialRequestKey = getRequestKey(initialRequest);
-
-    if (initialRequestKeyRef.current === initialRequestKey) return;
-
-    initialRequestKeyRef.current = initialRequestKey;
     void dispatchFetch(initialRequest, true);
   }, [dispatchFetch]);
 

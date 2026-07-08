@@ -6,6 +6,8 @@ import type { CandleColorScheme } from '../../store/configSlice';
 import { toCandleData, toMaData, toSeriesMarkers, toVolumeData } from './data';
 import type { KLineSeriesRefs } from './useKLineSeries';
 
+const RANGE_SYNC_SUPPRESSION_MS = 80;
+
 interface UseKLineDataSyncParams extends KLineSeriesRefs {
   candleMapRef: MutableRefObject<Map<number, Candle>>;
   candles: Candle[];
@@ -154,6 +156,7 @@ export function useKLineDataSync({
     };
     const mode = getSyncMode(previousSnapshot, nextSnapshot);
     const previousGlobalRange = captureGlobalRange(chart, previousSnapshot?.offset ?? offset);
+    const isFirstDataLoad = !previousSnapshot?.candles.length && candles.length > 0;
     const lastIndex = candles.length - 1;
 
     syncCandleMap(candleMapRef, candles, mode);
@@ -167,6 +170,10 @@ export function useKLineDataSync({
         candleSeriesRef.current.setData(candleData);
         volumeSeriesRef.current.setData(volumeData);
         maSeriesRef.current.setData(maData);
+
+        if (chart && isFirstDataLoad) {
+          chart.timeScale().fitContent();
+        }
       } else if (lastIndex >= 0) {
         candleSeriesRef.current.update(candleData[lastIndex]);
         volumeSeriesRef.current.update(volumeData[lastIndex]);
@@ -191,7 +198,7 @@ export function useKLineDataSync({
       suppressionReleaseTimerRef.current = setTimeout(() => {
         handlerSuppressedRef.current = false;
         suppressionReleaseTimerRef.current = null;
-      }, 0);
+      }, RANGE_SYNC_SUPPRESSION_MS);
     }
 
     previousSnapshotRef.current = nextSnapshot;

@@ -11,8 +11,6 @@ type PanDirection = 'left' | 'right';
 
 interface VisibleWindowSnapshot {
   center: number;
-  left: number;
-  right: number;
 }
 
 interface UseKLineRangePreloadParams {
@@ -31,18 +29,10 @@ function clamp(value: number, min: number, max: number) {
 function choosePanDirection(
   needLeft: boolean,
   needRight: boolean,
-  leftDistance: number,
-  rightDistance: number,
-  previousWindow: VisibleWindowSnapshot | null,
-  visibleCenter: number,
+  userPanDirection: PanDirection,
 ): PanDirection {
   if (needLeft && needRight) {
-    if (previousWindow) {
-      if (visibleCenter < previousWindow.center) return 'left';
-      if (visibleCenter > previousWindow.center) return 'right';
-    }
-
-    return leftDistance <= rightDistance ? 'left' : 'right';
+    return userPanDirection;
   }
 
   return needLeft ? 'left' : 'right';
@@ -95,12 +85,13 @@ export function useKLineRangePreload({
       const localRight = Math.ceil(range.to);
       const globalLeft = loadedOffset + localLeft;
       const globalRight = loadedOffset + localRight;
+      const loadedRight = loadedOffset + loadedLength - 1;
 
-      if (globalRight < 0 || globalLeft >= currentTotal) return;
+      if (globalRight < 0 && loadedOffset === 0) return;
+      if (globalLeft >= currentTotal && loadedRight >= currentTotal - 1) return;
 
       const visibleLeft = clamp(globalLeft, 0, currentTotal - 1);
       const visibleRight = clamp(globalRight, 0, currentTotal - 1);
-      const loadedRight = loadedOffset + loadedLength - 1;
       const leftDistance = visibleLeft - loadedOffset;
       const rightDistance = loadedRight - visibleRight;
       const needLeft = leftDistance <= PRELOAD_BARS / 2 && loadedOffset > 0;
@@ -111,19 +102,27 @@ export function useKLineRangePreload({
       const previousVisibleWindow = lastVisibleWindowRef.current;
       lastVisibleWindowRef.current = {
         center: visibleCenter,
-        left: visibleLeft,
-        right: visibleRight,
       };
 
       if (!needLeft && !needRight) return;
 
+      if (!previousVisibleWindow) return;
+
+      let userPanDirection: PanDirection | null = null;
+      if (visibleCenter < previousVisibleWindow.center - 1) {
+        userPanDirection = 'left';
+      } else if (visibleCenter > previousVisibleWindow.center + 1) {
+        userPanDirection = 'right';
+      }
+
+      if (!userPanDirection) return;
+      if (needLeft && !needRight && userPanDirection !== 'left') return;
+      if (needRight && !needLeft && userPanDirection !== 'right') return;
+
       const direction = choosePanDirection(
         needLeft,
         needRight,
-        leftDistance,
-        rightDistance,
-        previousVisibleWindow,
-        visibleCenter,
+        userPanDirection,
       );
       const windowSize = Math.min(MAX_WINDOW, currentTotal);
       const maxOffset = Math.max(0, currentTotal - windowSize);

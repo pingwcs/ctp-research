@@ -14,11 +14,14 @@ interface MarketState {
   candles: Candle[];
   markers: TradeMarker[];
   total: number;
+  // First global bar index in candles; the chart uses it to keep a stable
+  // visible range while background preloading swaps the loaded data window.
   offset: number;
   limit: number;
   loading: boolean;
   error: string | null;
-  lastLoadedAt: number | null;
+  lastLoadedTime: number | null;
+  // Offset:limit key for suppressing duplicate range requests from chart drags.
   lastRequestedRange: string | null;
 }
 
@@ -31,7 +34,7 @@ const initialState: MarketState = {
   limit: DEFAULT_KLINE_LIMIT,
   loading: false,
   error: null,
-  lastLoadedAt: null,
+  lastLoadedTime: null,
   lastRequestedRange: null,
 };
 
@@ -75,7 +78,7 @@ const marketSlice = createSlice({
         state.offset = action.payload.offset;
         state.limit = action.payload.limit;
         state.lastRequestedRange = `${action.payload.offset}:${action.payload.limit}`;
-        state.lastLoadedAt = Date.now();
+        state.lastLoadedTime = Date.now();
       })
       .addCase(fetchKLineData.rejected, (state, action) => {
         state.loading = false;

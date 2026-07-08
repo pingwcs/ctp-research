@@ -1,4 +1,4 @@
-import { API_ROUTES } from '../config/api';
+import { API_ROUTES } from '.';
 import { http } from './http';
 
 export type TradeSignalText = 'Buy' | 'Sell';

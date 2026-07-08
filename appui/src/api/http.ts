@@ -1,10 +1,6 @@
-import axios, {
-  AxiosError,
-  type AxiosInstance,
-  type AxiosRequestConfig,
-} from 'axios';
+import axios, { AxiosError, type AxiosInstance, type AxiosRequestConfig } from 'axios';
 
-import { API_TIMEOUT_MS } from '../config/api';
+const API_TIMEOUT_MS = 15000;
 
 interface ApiErrorPayload {
   detail?: string;
@@ -66,6 +62,8 @@ function createHttpClient(instance: AxiosInstance) {
   };
 }
 
-export const http = createHttpClient(axios.create({
-  timeout: API_TIMEOUT_MS,
-}));
+export const http = createHttpClient(
+  axios.create({
+    timeout: API_TIMEOUT_MS,
+  }),
+);

@@ -30,8 +30,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(market_router, prefix=settings.market_prefix, tags=["market"])
-app.include_router(backtest_router, prefix=settings.backtest_prefix, tags=["backtest"])
+app.include_router(
+    market_router,
+    prefix=settings.market_prefix,
+    tags=["market"],
+)
+app.include_router(
+    backtest_router,
+    prefix=settings.backtest_prefix,
+    tags=["backtest"],
+)
 
 
 @app.get("/health")
@@ -41,7 +49,11 @@ def health() -> dict[str, str]:
 
 @app.on_event("startup")
 def on_startup() -> None:
-    logger.info("{} started; parquet data dir={}", settings.app_name, settings.data_dir)
+    logger.info(
+        "{} started; parquet data dir={}",
+        settings.app_name,
+        settings.data_dir,
+    )
 
 
 if __name__ == "__main__":

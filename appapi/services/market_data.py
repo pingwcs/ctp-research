@@ -1,91 +1,19 @@
 """Read and normalize OHLCV data from contract parquet files."""
 
 from pathlib import Path
-import re
 
 import duckdb
 from fastapi import HTTPException, status
 from loguru import logger
 
-from appapi.core.config import settings
 from appapi.schemas.market import KLineResponse, TradeMarker
-
-
-SYMBOL_PATTERN = re.compile(r"^[A-Za-z0-9_.-]+$")
-
-# The local parquet files use bob/eob. Prefer eob because a 5-minute bar is
-# usually plotted at its closing timestamp.
-TIME_COLUMNS = ("eob", "bob", "datetime", "timestamp", "time", "date")
-FIELD_ALIASES = {
-    "open": ("open", "o"),
-    "high": ("high", "h"),
-    "low": ("low", "l"),
-    "close": ("close", "c"),
-    "volume": ("volume", "vol", "qty"),
-    "signal": ("signal", "trade_signal", "signals"),
-}
-
-
-def _resolve_contract_file(symbol: str) -> Path:
-    if not SYMBOL_PATTERN.fullmatch(symbol):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="symbol may only contain letters, numbers, underscore, dash and dot",
-        )
-
-    data_dir = settings.data_dir.resolve()
-    path = (data_dir / f"{symbol}.parquet").resolve()
-    if data_dir not in path.parents:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="invalid symbol path",
-        )
-    if not path.exists():
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"contract parquet not found: ../data/output/{symbol}.parquet",
-        )
-    return path
-
-
-def _quote_identifier(name: str) -> str:
-    return '"' + name.replace('"', '""') + '"'
-
-
-def _column_map(columns: list[str]) -> dict[str, str]:
-    by_lower = {column.lower(): column for column in columns}
-
-    mapped: dict[str, str] = {}
-    for candidate in TIME_COLUMNS:
-        if candidate in by_lower:
-            mapped["time"] = by_lower[candidate]
-            break
-
-    for normalized, aliases in FIELD_ALIASES.items():
-        for alias in aliases:
-            if alias in by_lower:
-                mapped[normalized] = by_lower[alias]
-                break
-
-    required = ("time", "open", "high", "low", "close", "volume")
-    missing = [name for name in required if name not in mapped]
-    if missing:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=(
-                "parquet missing required columns: "
-                f"{', '.join(missing)}; available columns: {', '.join(columns)}"
-            ),
-        )
-    return mapped
-
-
-def _describe_columns(connection: duckdb.DuckDBPyConnection, parquet_path: Path) -> list[str]:
-    rows = connection.execute(
-        "DESCRIBE SELECT * FROM read_parquet(?)",
-        [str(parquet_path)],
-    ).fetchall()
-    return [row[0] for row in rows]
+from appapi.services.parquet_utils import (
+    column_map,
+    describe_columns,
+    parquet_path_literal,
+    quote_identifier,
+    resolve_contract_file,
+)
 
 
 def _build_select_sql(
@@ -94,45 +22,50 @@ def _build_select_sql(
     offset: int,
     limit: int,
 ) -> str:
-    time_column = _quote_identifier(mapped["time"])
+    time_column = quote_identifier(mapped["time"])
     signal_expr = "NULL AS signal"
     if "signal" in mapped:
-        signal_expr = f"CAST({_quote_identifier(mapped['signal'])} AS VARCHAR) AS signal"
+        signal_expr = (
+            f"CAST({quote_identifier(mapped['signal'])} AS VARCHAR) AS signal"
+        )
 
     return f"""
         SELECT
             epoch(CAST({time_column} AS TIMESTAMP))::BIGINT AS time,
-            CAST({_quote_identifier(mapped["open"])} AS DOUBLE) AS open,
-            CAST({_quote_identifier(mapped["high"])} AS DOUBLE) AS high,
-            CAST({_quote_identifier(mapped["low"])} AS DOUBLE) AS low,
-            CAST({_quote_identifier(mapped["close"])} AS DOUBLE) AS close,
-            CAST({_quote_identifier(mapped["volume"])} AS DOUBLE) AS volume,
+            CAST({quote_identifier(mapped["open"])} AS DOUBLE) AS open,
+            CAST({quote_identifier(mapped["high"])} AS DOUBLE) AS high,
+            CAST({quote_identifier(mapped["low"])} AS DOUBLE) AS low,
+            CAST({quote_identifier(mapped["close"])} AS DOUBLE) AS close,
+            CAST({quote_identifier(mapped["volume"])} AS DOUBLE) AS volume,
             {signal_expr}
-        FROM read_parquet('{str(parquet_path).replace("'", "''")}')
+        FROM read_parquet('{parquet_path_literal(parquet_path)}')
         WHERE {time_column} IS NOT NULL
-          AND {_quote_identifier(mapped["open"])} IS NOT NULL
-          AND {_quote_identifier(mapped["high"])} IS NOT NULL
-          AND {_quote_identifier(mapped["low"])} IS NOT NULL
-          AND {_quote_identifier(mapped["close"])} IS NOT NULL
+          AND {quote_identifier(mapped["open"])} IS NOT NULL
+          AND {quote_identifier(mapped["high"])} IS NOT NULL
+          AND {quote_identifier(mapped["low"])} IS NOT NULL
+          AND {quote_identifier(mapped["close"])} IS NOT NULL
         ORDER BY {time_column}
         LIMIT {int(limit)} OFFSET {int(offset)}
     """
 
 
 def _build_count_sql(parquet_path: Path, mapped: dict[str, str]) -> str:
-    time_column = _quote_identifier(mapped["time"])
+    time_column = quote_identifier(mapped["time"])
     return f"""
         SELECT COUNT(*)::BIGINT
-        FROM read_parquet('{str(parquet_path).replace("'", "''")}')
+        FROM read_parquet('{parquet_path_literal(parquet_path)}')
         WHERE {time_column} IS NOT NULL
-          AND {_quote_identifier(mapped["open"])} IS NOT NULL
-          AND {_quote_identifier(mapped["high"])} IS NOT NULL
-          AND {_quote_identifier(mapped["low"])} IS NOT NULL
-          AND {_quote_identifier(mapped["close"])} IS NOT NULL
+          AND {quote_identifier(mapped["open"])} IS NOT NULL
+          AND {quote_identifier(mapped["high"])} IS NOT NULL
+          AND {quote_identifier(mapped["low"])} IS NOT NULL
+          AND {quote_identifier(mapped["close"])} IS NOT NULL
     """
 
 
-def _marker_from_signal(time_value: int, signal: str | None) -> TradeMarker | None:
+def _marker_from_signal(
+    time_value: int,
+    signal: str | None,
+) -> TradeMarker | None:
     if not signal:
         return None
     normalized = signal.strip().lower()
@@ -160,7 +93,7 @@ def load_kline_data(
     offset: int | None = None,
     limit: int = 2000,
 ) -> KLineResponse:
-    parquet_path = _resolve_contract_file(symbol)
+    parquet_path = resolve_contract_file(symbol)
     safe_limit = max(1, min(limit, 2000))
     logger.info(
         "Loading kline data: symbol={}, file={}, offset={}, limit={}",
@@ -171,20 +104,39 @@ def load_kline_data(
     )
 
     try:
-        with duckdb.connect(database=":memory:", read_only=False) as connection:
-            columns = _describe_columns(connection, parquet_path)
-            mapped = _column_map(columns)
-            total = int(connection.execute(_build_count_sql(parquet_path, mapped)).fetchone()[0])
-            safe_offset = max(0, total - safe_limit) if offset is None else max(0, offset)
+        with duckdb.connect(
+            database=":memory:",
+            read_only=False,
+        ) as connection:
+            columns = describe_columns(connection, parquet_path)
+            mapped = column_map(columns)
+            total = int(
+                connection.execute(
+                    _build_count_sql(parquet_path, mapped),
+                ).fetchone()[0]
+            )
+            if offset is None:
+                safe_offset = max(0, total - safe_limit)
+            else:
+                safe_offset = max(0, offset)
             if total:
                 safe_offset = min(safe_offset, max(0, total - 1))
             rows = connection.execute(
-                _build_select_sql(parquet_path, mapped, safe_offset, safe_limit),
+                _build_select_sql(
+                    parquet_path,
+                    mapped,
+                    safe_offset,
+                    safe_limit,
+                ),
             ).fetchall()
     except HTTPException:
         raise
     except Exception as exc:
-        logger.exception("Failed to load parquet data: symbol={}, file={}", symbol, parquet_path)
+        logger.exception(
+            "Failed to load parquet data: symbol={}, file={}",
+            symbol,
+            parquet_path,
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"failed to read market data for {symbol}: {exc}",

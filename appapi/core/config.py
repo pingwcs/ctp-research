@@ -18,7 +18,9 @@ class Settings:
     app_name: str = "Futures Quantitative Research API"
     market_prefix: str = "/api/market"
     backtest_prefix: str = "/api/backtest"
-    data_dir: Path = _resolve_from_app(os.getenv("MARKET_DATA_DIR", "../data/output"))
+    data_dir: Path = _resolve_from_app(
+        os.getenv("MARKET_DATA_DIR", "../data/output"),
+    )
     log_dir: Path = _resolve_from_app(os.getenv("MARKET_LOG_DIR", "logs"))
     cors_origins: tuple[str, ...] = tuple(
         origin.strip()

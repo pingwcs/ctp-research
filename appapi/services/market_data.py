@@ -158,10 +158,10 @@ def _marker_from_signal(time_value: int, signal: str | None) -> TradeMarker | No
 def load_kline_data(
     symbol: str,
     offset: int | None = None,
-    limit: int = 200,
+    limit: int = 2000,
 ) -> KLineResponse:
     parquet_path = _resolve_contract_file(symbol)
-    safe_limit = max(1, min(limit, 500))
+    safe_limit = max(1, min(limit, 2000))
     logger.info(
         "Loading kline data: symbol={}, file={}, offset={}, limit={}",
         symbol,

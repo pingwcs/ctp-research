@@ -13,6 +13,6 @@ router = APIRouter()
 def get_kline(
     symbol: str = Query(..., min_length=1, examples=["RB0909"]),
     offset: int | None = Query(None, ge=0),
-    limit: int = Query(200, ge=1, le=500),
+    limit: int = Query(2000, ge=1, le=2000),
 ) -> KLineResponse:
     return load_kline_data(symbol=symbol, offset=offset, limit=limit)

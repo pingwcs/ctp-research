@@ -1,8 +1,4 @@
-import {
-  ExperimentOutlined,
-  HomeOutlined,
-  LineChartOutlined,
-} from '@ant-design/icons';
+import { ExperimentOutlined, HomeOutlined, LineChartOutlined } from '@ant-design/icons';
 import { Layout, Menu, Typography } from 'antd';
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 

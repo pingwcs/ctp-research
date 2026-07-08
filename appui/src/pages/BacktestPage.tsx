@@ -33,10 +33,13 @@ const formatMetric = (value: number | null) => {
   return Math.abs(value) < 1 ? `${(value * 100).toFixed(2)}%` : value.toFixed(4);
 };
 
+const EQUITY_CHART_WIDTH = 900;
+const EQUITY_CHART_HEIGHT = 240;
+
 function EquityChart({ points }: { points: EquityPoint[] }) {
   if (!points.length) return <Empty description="No equity data" />;
-  const width = 900;
-  const height = 240;
+  const width = EQUITY_CHART_WIDTH;
+  const height = EQUITY_CHART_HEIGHT;
   const min = Math.min(...points.map((point) => point.equity));
   const max = Math.max(...points.map((point) => point.equity));
   const span = max - min || 1;
@@ -202,7 +205,7 @@ export default function BacktestPage() {
           <Card
             className="result-card"
             title="Results"
-            extra={state.result ? `${state.result.symbol} · ${state.result.trades.length} trades` : null}
+            extra={state.result ? `${state.result.symbol} . ${state.result.trades.length} trades` : null}
           >
             {state.result ? (
               <Space direction="vertical" size={16} className="full-width">

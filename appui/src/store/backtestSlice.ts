@@ -26,6 +26,8 @@ interface BacktestState {
   error: string | null;
 }
 
+const DEFAULT_METRIC_COUNT = 3;
+
 const initialState: BacktestState = {
   strategies: [],
   symbols: [],
@@ -93,7 +95,7 @@ const backtestSlice = createSlice({
           state.selectedSymbol = action.payload.symbols[0];
         }
         if (!state.selectedMetrics.length) {
-          state.selectedMetrics = action.payload.metrics.slice(0, 3).map((metric) => metric.id);
+          state.selectedMetrics = action.payload.metrics.slice(0, DEFAULT_METRIC_COUNT).map((metric) => metric.id);
         }
       })
       .addCase(fetchBacktestOptions.rejected, (state, action) => {

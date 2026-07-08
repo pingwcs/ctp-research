@@ -2,9 +2,16 @@ import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
 
 import { MA_COLORS, MA_WINDOW_MAX, MA_WINDOW_MIN } from '../config/chart';
 
-export type Language = 'zh-CN' | 'en-US';
+export const LANGUAGE_OPTIONS = [
+  { value: 'zh-CN', label: 'Chinese' },
+  { value: 'en-US', label: 'English' },
+] as const;
+
+export type Language = (typeof LANGUAGE_OPTIONS)[number]['value'];
 export type PriceScale = 'normal' | 'logarithmic';
 export type CandleColorScheme = 'china' | 'international';
+
+const DEFAULT_LANGUAGE: Language = LANGUAGE_OPTIONS[0].value;
 
 interface ChartConfigState {
   language: Language;
@@ -17,7 +24,7 @@ interface ChartConfigState {
 }
 
 const initialState: ChartConfigState = {
-  language: 'zh-CN',
+  language: DEFAULT_LANGUAGE,
   priceScale: 'normal',
   colorScheme: 'china',
   maVisible: true,

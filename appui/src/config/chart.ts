@@ -1,5 +1,6 @@
 export const DEFAULT_SYMBOL = 'RB0909';
-export const DEFAULT_KLINE_LIMIT = 500;
+export const DEFAULT_KLINE_LIMIT = 2000;
+export const MAX_WINDOW = DEFAULT_KLINE_LIMIT;
 
 
 
@@ -8,7 +9,6 @@ export const MA_WINDOW_MAX = 30;
 
 export const PRELOAD_BARS = 1000;
 
-export const MAX_WINDOW = 2000;
 export const CHART_RANGE_THROTTLE_MS = 250;
 
 export const MIN_BAR_SPACING = 3;

@@ -24,6 +24,7 @@ import {
   MA_WINDOW_MIN,
 } from '../config/chart';
 import {
+  LANGUAGE_OPTIONS,
   setColorScheme,
   setLanguage,
   setMaColor,
@@ -49,10 +50,7 @@ const colorSchemeOptions = [
   { value: 'international', label: 'International' },
 ];
 
-const languageOptions = [
-  { value: 'zh-CN', label: 'Chinese' },
-  { value: 'en-US', label: 'English' },
-];
+const languageOptions = LANGUAGE_OPTIONS.map((option) => ({ ...option }));
 
 interface RangeRequestState {
   symbol: string;
@@ -67,6 +65,7 @@ export default function KLinePage() {
   const config = useAppSelector((state) => state.config);
   const responsiveProfile = useResponsiveProfile();
   const [draftSymbol, setDraftSymbol] = useState(market.symbol);
+  const initialSymbolRef = useRef(market.symbol);
   const pendingRangeRef = useRef<string | null>(null);
   const rangeRequestInFlightRef = useRef(false);
   const requestStateRef = useRef<RangeRequestState>({
@@ -77,7 +76,7 @@ export default function KLinePage() {
   });
 
   useEffect(() => {
-    void dispatch(fetchKLineData({ symbol: market.symbol, limit: DEFAULT_KLINE_LIMIT }));
+    void dispatch(fetchKLineData({ symbol: initialSymbolRef.current, limit: DEFAULT_KLINE_LIMIT }));
   }, [dispatch]);
 
   useEffect(() => {
@@ -146,7 +145,7 @@ export default function KLinePage() {
               <Typography.Title level={3}>Futures K-Line</Typography.Title>
               <Typography.Text type="secondary">
                 {market.candles.length
-                  ? `${market.symbol} / ${market.total.toLocaleString()} total bars`
+                  ? `${market.symbol} / ${market.total.toLocaleString(config.language)} total bars`
                   : market.symbol}
               </Typography.Text>
             </Col>
@@ -271,7 +270,9 @@ export default function KLinePage() {
         <div className="page-footer">
           <Typography.Text type="secondary">Data API: /api/market/kline</Typography.Text>
           <Typography.Text type="secondary">
-            {market.lastLoadedTime ? new Date(market.lastLoadedTime).toLocaleString() : ''}
+            {market.lastLoadedTime
+              ? new Date(market.lastLoadedTime).toLocaleString(config.language)
+              : ''}
           </Typography.Text>
         </div>
       </Space>

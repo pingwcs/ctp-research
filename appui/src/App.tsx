@@ -1,10 +1,12 @@
 import { ExperimentOutlined, HomeOutlined, LineChartOutlined } from '@ant-design/icons';
 import { Layout, Menu, Typography } from 'antd';
+import { useEffect } from 'react';
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 
 import BacktestPage from './pages/BacktestPage';
 import HomePage from './pages/HomePage';
 import KLinePage from './pages/KLinePage';
+import { useAppSelector } from './store';
 
 const { Header, Content } = Layout;
 
@@ -17,6 +19,11 @@ const navItems = [
 export default function App() {
   const location = useLocation();
   const navigate = useNavigate();
+  const language = useAppSelector((state) => state.config.language);
+
+  useEffect(() => {
+    document.documentElement.lang = language;
+  }, [language]);
 
   return (
     <Layout className="app-layout">

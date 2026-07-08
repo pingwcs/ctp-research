@@ -28,6 +28,12 @@ interface BacktestState {
 
 const DEFAULT_METRIC_COUNT = 3;
 
+interface BacktestOptionsPayload {
+  strategies: StrategyInfo[];
+  symbols: string[];
+  metrics: MetricInfo[];
+}
+
 const initialState: BacktestState = {
   strategies: [],
   symbols: [],
@@ -43,22 +49,38 @@ const initialState: BacktestState = {
   error: null,
 };
 
-export const fetchBacktestOptions = createAsyncThunk(
-  'backtest/fetchOptions',
-  async () => {
+function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error && error.message ? error.message : fallback;
+}
+
+export const fetchBacktestOptions = createAsyncThunk<
+  BacktestOptionsPayload,
+  void,
+  { rejectValue: string }
+>('backtest/fetchOptions', async (_, { rejectWithValue }) => {
+  try {
     const [strategies, symbols, metrics] = await Promise.all([
       fetchBacktestStrategies(),
       fetchBacktestSymbols(),
       fetchBacktestMetrics(),
     ]);
     return { strategies, symbols, metrics };
-  },
-);
+  } catch (error) {
+    return rejectWithValue(getErrorMessage(error, 'Failed to load backtest options'));
+  }
+});
 
-export const runBacktest = createAsyncThunk<BacktestResult, BacktestRunParams>(
-  'backtest/run',
-  async (params) => runBacktestRequest(params),
-);
+export const runBacktest = createAsyncThunk<
+  BacktestResult,
+  BacktestRunParams,
+  { rejectValue: string }
+>('backtest/run', async (params, { rejectWithValue }) => {
+  try {
+    return await runBacktestRequest(params);
+  } catch (error) {
+    return rejectWithValue(getErrorMessage(error, 'Backtest failed'));
+  }
+});
 
 const backtestSlice = createSlice({
   name: 'backtest',
@@ -95,12 +117,14 @@ const backtestSlice = createSlice({
           state.selectedSymbol = action.payload.symbols[0];
         }
         if (!state.selectedMetrics.length) {
-          state.selectedMetrics = action.payload.metrics.slice(0, DEFAULT_METRIC_COUNT).map((metric) => metric.id);
+          state.selectedMetrics = action.payload.metrics
+            .slice(0, DEFAULT_METRIC_COUNT)
+            .map((metric) => metric.id);
         }
       })
       .addCase(fetchBacktestOptions.rejected, (state, action) => {
         state.loadingOptions = false;
-        state.error = action.error.message || 'Failed to load backtest options';
+        state.error = action.payload || action.error.message || 'Failed to load backtest options';
       })
       .addCase(runBacktest.pending, (state) => {
         state.running = true;
@@ -112,7 +136,7 @@ const backtestSlice = createSlice({
       })
       .addCase(runBacktest.rejected, (state, action) => {
         state.running = false;
-        state.error = action.error.message || 'Backtest failed';
+        state.error = action.payload || action.error.message || 'Backtest failed';
       });
   },
 });

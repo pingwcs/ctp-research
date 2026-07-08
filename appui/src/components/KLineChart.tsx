@@ -10,14 +10,11 @@ import {
   PriceScaleMode,
   createChart,
   createSeriesMarkers,
-  type CandlestickData,
-  type HistogramData,
   type IChartApi,
   type ISeriesApi,
   type MouseEventParams,
   type SeriesMarker,
   type Time,
-  type UTCTimestamp,
 } from 'lightweight-charts';
 
 import type { Candle, TradeMarker } from '../api/market';
@@ -26,21 +23,22 @@ import {
   CHART_PRICE_MARGIN_BOTTOM,
   CHART_PRICE_MARGIN_TOP,
   CHART_RIGHT_OFFSET,
-  CHART_TIME_ZONE,
   MAX_BAR_SPACING,
-  MAX_WINDOW,
   MIN_BAR_SPACING,
-  NUMBER_FORMAT_OPTIONS,
-  PRELOAD_BARS,
-  TOOLTIP_MIN_HEIGHT,
-  TOOLTIP_MIN_WIDTH,
-  TOOLTIP_OFFSET,
-  TOOLTIP_PAD,
-  VOLUME_FORMAT_OPTIONS,
 } from '../config/chart';
 import type { ChartViewportConfig } from '../config/responsive';
 import { CHART_PALETTE } from '../config/theme';
 import type { CandleColorScheme, Language, PriceScale } from '../store/configSlice';
+import {
+  formatChartNumber,
+  formatChartTime,
+  toCandleData,
+  toMaData,
+  toSeriesMarkers,
+  toVolumeData,
+} from './kline/data';
+import { createKLineCrosshairHandler } from './kline/tooltip';
+import { type LogicalRangeLike, useKLineRangePreload } from '../hooks/useKLineRangePreload';
 
 interface KLineChartProps {
   candles: Candle[];
@@ -59,18 +57,8 @@ interface KLineChartProps {
   onRequestRange?: (left: number, right: number) => void;
 }
 
-interface Point {
-  x: number;
-  y: number;
-}
-
 interface MarkerApi {
   setMarkers: (markers: SeriesMarker<Time>[]) => void;
-}
-
-interface LogicalRangeLike {
-  from: number;
-  to: number;
 }
 
 interface ChartSeriesBundle {
@@ -78,114 +66,6 @@ interface ChartSeriesBundle {
   volumeSeries: ISeriesApi<'Histogram'>;
   maSeries: ISeriesApi<'Line'>;
   markerApi: MarkerApi;
-}
-
-interface RefBox<T> {
-  current: T;
-}
-
-const numberFormatter = new Intl.NumberFormat('zh-CN', NUMBER_FORMAT_OPTIONS);
-const volumeFormatter = new Intl.NumberFormat('zh-CN', VOLUME_FORMAT_OPTIONS);
-
-function toUtcTimestamp(time: number): UTCTimestamp {
-  return time as UTCTimestamp;
-}
-
-function formatTime(time: number, language: Language) {
-  return new Date(time * 1000).toLocaleString(language, {
-    hour12: false,
-    timeZone: CHART_TIME_ZONE,
-  });
-}
-
-function renderTooltip(
-  tooltip: HTMLDivElement | null,
-  candle: Candle | undefined,
-  point: Point | null,
-  container: HTMLDivElement | null,
-  language: Language,
-) {
-  if (!tooltip || !candle || !point || !container) return;
-
-  const toneClass = candle.close >= candle.open ? 'is-up' : 'is-down';
-  tooltip.className = `chart-tooltip ${toneClass}`;
-  tooltip.innerHTML = `
-    <div class="chart-tooltip__time">${formatTime(candle.time, language)}</div>
-    <div class="chart-tooltip__grid">
-      <span>Open</span><strong>${numberFormatter.format(candle.open)}</strong>
-      <span>High</span><strong>${numberFormatter.format(candle.high)}</strong>
-      <span>Low</span><strong>${numberFormatter.format(candle.low)}</strong>
-      <span>Close</span><strong>${numberFormatter.format(candle.close)}</strong>
-      <span>Vol</span><strong>${volumeFormatter.format(candle.volume)}</strong>
-    </div>
-  `;
-
-  const { width, height } = container.getBoundingClientRect();
-  const tooltipWidth = tooltip.offsetWidth || TOOLTIP_MIN_WIDTH;
-  const tooltipHeight = tooltip.offsetHeight || TOOLTIP_MIN_HEIGHT;
-  const left = Math.min(
-    Math.max(point.x + TOOLTIP_OFFSET, TOOLTIP_PAD),
-    width - tooltipWidth - TOOLTIP_PAD,
-  );
-  const top = Math.min(
-    Math.max(point.y + TOOLTIP_OFFSET, TOOLTIP_PAD),
-    height - tooltipHeight - TOOLTIP_PAD,
-  );
-
-  tooltip.style.transform = `translate(${left}px, ${top}px)`;
-  tooltip.style.opacity = '1';
-}
-
-function hideTooltip(tooltip: HTMLDivElement | null) {
-  if (tooltip) {
-    tooltip.style.opacity = '0';
-  }
-}
-
-function toCandleData(candles: Candle[]): CandlestickData<UTCTimestamp>[] {
-  return candles.map((item) => ({
-    time: toUtcTimestamp(item.time),
-    open: item.open,
-    high: item.high,
-    low: item.low,
-    close: item.close,
-  }));
-}
-
-function toVolumeData(
-  candles: Candle[],
-  colorScheme: CandleColorScheme,
-): HistogramData<UTCTimestamp>[] {
-  const colors = CHART_PALETTE[colorScheme];
-  return candles.map((item) => ({
-    time: toUtcTimestamp(item.time),
-    value: item.volume,
-    color: item.close >= item.open ? colors.upVolume : colors.downVolume,
-  }));
-}
-
-function toMaData(candles: Candle[], windowSize: number) {
-  // Use the available leading bars before a full window exists so the MA
-  // overlay starts at the first candle instead of appearing later.
-  return candles.map((item, index) => {
-    const start = Math.max(0, index - windowSize + 1);
-    const sample = candles.slice(start, index + 1);
-    const value = sample.reduce((sum, candle) => sum + candle.close, 0) / sample.length;
-    return {
-      time: toUtcTimestamp(item.time),
-      value,
-    };
-  });
-}
-
-function toSeriesMarkers(markers: TradeMarker[]): SeriesMarker<Time>[] {
-  return markers.map((item) => ({
-    time: toUtcTimestamp(item.time),
-    position: item.position,
-    color: item.color,
-    shape: item.shape,
-    text: item.text,
-  }));
 }
 
 function createBaseChart(container: HTMLDivElement, language: Language, priceScale: PriceScale) {
@@ -198,8 +78,8 @@ function createBaseChart(container: HTMLDivElement, language: Language, priceSca
     },
     localization: {
       locale: language,
-      priceFormatter: (price: number) => numberFormatter.format(price),
-      timeFormatter: (time: Time) => formatTime(Number(time), language),
+      priceFormatter: (price: number) => formatChartNumber(price, language),
+      timeFormatter: (time: Time) => formatChartTime(Number(time), language),
     },
     grid: {
       vertLines: { color: '#18181b' },
@@ -293,93 +173,6 @@ function createChartSeries(
   };
 }
 
-function createCrosshairHandler(
-  tooltipRef: RefBox<HTMLDivElement | null>,
-  candleMapRef: RefBox<Map<number, Candle>>,
-  containerRef: RefBox<HTMLDivElement | null>,
-  languageRef: RefBox<Language>,
-) {
-  return (param: MouseEventParams<Time>) => {
-    if (!param.point || !param.time || param.point.x < 0 || param.point.y < 0) {
-      hideTooltip(tooltipRef.current);
-      return;
-    }
-
-    const candle = candleMapRef.current.get(Number(param.time));
-    if (!candle) {
-      hideTooltip(tooltipRef.current);
-      return;
-    }
-
-    renderTooltip(
-      tooltipRef.current,
-      candle,
-      param.point,
-      containerRef.current,
-      languageRef.current,
-    );
-  };
-}
-
-function createVisibleRangeHandler(
-  offsetRef: RefBox<number>,
-  totalRef: RefBox<number>,
-  candlesLengthRef: RefBox<number>,
-  onRequestRange: ((left: number, right: number) => void) | undefined,
-  suppressRef?: RefBox<boolean>,
-) {
-  let lastEmittedRangeKey = '';
-
-  return (range: LogicalRangeLike | null) => {
-    if (!range) return;
-    if (suppressRef?.current) return;
-
-    const loadedOffset = offsetRef.current;
-    const loadedLength = candlesLengthRef.current;
-    const total = totalRef.current;
-    if (!loadedLength || !total) return;
-
-    const localLeft = Math.floor(range.from);
-    const localRight = Math.ceil(range.to);
-    const globalLeft = loadedOffset + localLeft;
-    const globalRight = loadedOffset + localRight;
-
-    // Clamp to data boundaries
-    if (globalLeft < 0) {
-      return;
-    }
-    if (globalRight >= total) {
-      return;
-    }
-
-    const loadedRight = loadedOffset + loadedLength - 1;
-
-    // Trigger preload when visible area has consumed more than half the buffer
-    const needLeft = globalLeft - loadedOffset <= PRELOAD_BARS / 2 && loadedOffset > 0;
-    const needRight = loadedRight - globalRight <= PRELOAD_BARS / 2 && loadedRight < total - 1;
-
-    if (!needLeft && !needRight) return;
-
-    // Build request window: visible range extended by PRELOAD_BARS on each side
-    let targetLeft = Math.max(0, globalLeft - PRELOAD_BARS);
-    let targetRight = Math.min(total - 1, globalRight + PRELOAD_BARS);
-
-    // Cap to MAX_WINDOW, anchored at visible range center
-    if (targetRight - targetLeft + 1 > MAX_WINDOW) {
-      const center = Math.floor((globalLeft + globalRight) / 2);
-      targetLeft = Math.max(0, center - Math.floor(MAX_WINDOW / 2));
-      targetRight = Math.min(total - 1, targetLeft + MAX_WINDOW - 1);
-    }
-
-    // Deduplicate by combined key
-    const combinedKey = `${targetLeft}:${targetRight}`;
-    if (combinedKey === lastEmittedRangeKey) return;
-    lastEmittedRangeKey = combinedKey;
-
-    onRequestRange && onRequestRange(targetLeft, targetRight);
-  };
-}
-
 function disposeChart(
   chart: IChartApi,
   markerApi: MarkerApi,
@@ -426,18 +219,27 @@ export default function KLineChart({
   const markersRef = useRef<MarkerApi | null>(null);
   const candleMapRef = useRef<Map<number, Candle>>(new Map());
 
-  const offsetRef = useRef(offset);
-  const totalRef = useRef(total);
-  const candlesLengthRef = useRef(candles.length);
   const languageRef = useRef(language);
+  // supress handler during setData to avoid intermediate range-change events
   const handlerSuppressedRef = useRef(false);
   const prevOffsetRef = useRef(offset);
+  const initialChartOptionsRef = useRef({
+    colorScheme,
+    language,
+    maColor,
+    priceScale,
+  });
 
-  offsetRef.current = offset;
-  totalRef.current = total;
-  candlesLengthRef.current = candles.length;
   languageRef.current = language;
 
+  const handleVisibleRangeChange = useKLineRangePreload({
+    candlesLength: candles.length,
+    offset,
+    onRequestRange,
+    resetKey: symbol,
+    suppressRef: handlerSuppressedRef,
+    total,
+  });
   const candleData = useMemo(() => toCandleData(candles), [candles]);
   const volumeData = useMemo(() => toVolumeData(candles, colorScheme), [candles, colorScheme]);
   const maData = useMemo(
@@ -461,25 +263,25 @@ export default function KLineChart({
   useEffect(() => {
     if (!containerRef.current) return undefined;
 
-    const chart = createBaseChart(containerRef.current, language, priceScale);
+    const {
+      colorScheme: initialColorScheme,
+      language: initialLanguage,
+      maColor: initialMaColor,
+      priceScale: initialPriceScale,
+    } = initialChartOptionsRef.current;
+    const chart = createBaseChart(containerRef.current, initialLanguage, initialPriceScale);
     const { candleSeries, volumeSeries, maSeries, markerApi } = createChartSeries(
       chart,
-      colorScheme,
-      maColor,
+      initialColorScheme,
+      initialMaColor,
     );
-    const onCrosshairMove = createCrosshairHandler(
+    const onCrosshairMove = createKLineCrosshairHandler(
       tooltipRef,
       candleMapRef,
       containerRef,
       languageRef,
     );
-    const onVisibleRangeChange = createVisibleRangeHandler(
-      offsetRef,
-      totalRef,
-      candlesLengthRef,
-      onRequestRange,
-      handlerSuppressedRef,
-    );
+    const onVisibleRangeChange = handleVisibleRangeChange;
 
     chart.subscribeCrosshairMove(onCrosshairMove);
     chart.timeScale().subscribeVisibleLogicalRangeChange(onVisibleRangeChange);
@@ -498,7 +300,7 @@ export default function KLineChart({
       maSeriesRef.current = null;
       markersRef.current = null;
     };
-  }, []);
+  }, [handleVisibleRangeChange]);
 
   useEffect(() => {
     const colors = CHART_PALETTE[colorScheme];
@@ -520,8 +322,8 @@ export default function KLineChart({
     chartRef.current?.applyOptions({
       localization: {
         locale: language,
-        priceFormatter: (price: number) => numberFormatter.format(price),
-        timeFormatter: (time: Time) => formatTime(Number(time), language),
+        priceFormatter: (price: number) => formatChartNumber(price, language),
+        timeFormatter: (time: Time) => formatChartTime(Number(time), language),
       },
     });
   }, [language]);
@@ -551,13 +353,14 @@ export default function KLineChart({
     // Suppress the range-change handler during setData so it doesn't
     // fire on intermediate logical ranges before we restore the view.
     handlerSuppressedRef.current = true;
-
-    candleSeriesRef.current.setData(candleData);
-    volumeSeriesRef.current.setData(volumeData);
-    maSeriesRef.current.setData(maData);
-    markersRef.current.setMarkers(markerData);
-
-    handlerSuppressedRef.current = false;
+    try {
+      candleSeriesRef.current.setData(candleData);
+      volumeSeriesRef.current.setData(volumeData);
+      maSeriesRef.current.setData(maData);
+      markersRef.current.setMarkers(markerData);
+    } finally {
+      handlerSuppressedRef.current = false;
+    }
 
     // Restore visible range at the same global position
     if (chart && prevGlobalRange && oldOffset !== newOffset) {
@@ -570,7 +373,7 @@ export default function KLineChart({
 
     // Always keep prevOffsetRef in sync with current offset
     prevOffsetRef.current = newOffset;
-  }, [candles, candleData, volumeData, maData, markerData]);
+  }, [candles, candleData, volumeData, maData, markerData, offset]);
 
   return (
     <div className="chart-shell" style={chartStyle}>

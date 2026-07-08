@@ -111,19 +111,24 @@ export default function KLinePage() {
     void dispatch(fetchKLineData({ symbol: market.symbol, limit: DEFAULT_KLINE_LIMIT }));
   };
 
-  const requestRange = useCallback((left: number, right: number) => {
-    const state = requestStateRef.current;
-    if (!state.total || state.loading || rangeRequestInFlightRef.current) return;
+  const requestRange = useCallback(
+    (left: number, right: number) => {
+      const state = requestStateRef.current;
+      if (!state.total || state.loading || rangeRequestInFlightRef.current) return;
 
-    // The chart emits a global preload window; the page de-duplicates it
-    // before hitting the market API so wheel/drag gestures stay cheap.
-    const requestKey = `${left}:${right - left + 1}`;
-    if (pendingRangeRef.current === requestKey || state.lastRequestedRange === requestKey) return;
+      // The chart emits a global preload window; the page de-duplicates it
+      // before hitting the market API so wheel/drag gestures stay cheap.
+      const requestKey = `${left}:${right - left + 1}`;
+      if (pendingRangeRef.current === requestKey || state.lastRequestedRange === requestKey) return;
 
-    pendingRangeRef.current = requestKey;
-    rangeRequestInFlightRef.current = true;
-    void dispatch(fetchKLineData({ symbol: state.symbol, offset: left, limit: right - left + 1 }));
-  }, [dispatch]);
+      pendingRangeRef.current = requestKey;
+      rangeRequestInFlightRef.current = true;
+      void dispatch(
+        fetchKLineData({ symbol: state.symbol, offset: left, limit: right - left + 1 }),
+      );
+    },
+    [dispatch],
+  );
 
   const throttledRequestRange = useMemo(
     () => throttle(requestRange, CHART_RANGE_THROTTLE_MS, { trailing: false }),
@@ -134,7 +139,7 @@ export default function KLinePage() {
 
   return (
     <section className="page page--kline">
-      <Space direction="vertical" size={16} className="page-stack">
+      <Space orientation="vertical" size={16} className="page-stack">
         <Card className="toolbar-card">
           <Row align="bottom" gutter={[12, 12]} justify="space-between">
             <Col xs={24} lg={8}>
@@ -244,9 +249,7 @@ export default function KLinePage() {
           </Row>
         </Card>
 
-        {market.error ? (
-          <Alert message={market.error} showIcon type="error" />
-        ) : null}
+        {market.error ? <Alert message={market.error} showIcon type="error" /> : null}
 
         <KLineChart
           candles={market.candles}

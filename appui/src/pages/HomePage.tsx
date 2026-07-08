@@ -20,7 +20,7 @@ const modules = [
 export default function HomePage() {
   return (
     <section className="page page--home">
-      <Space direction="vertical" size={24} className="home-shell">
+      <Space orientation="vertical" size={24} className="home-shell">
         <div>
           <Typography.Title level={2}>Quant Workspace</Typography.Title>
           <Typography.Text type="secondary">
@@ -34,7 +34,7 @@ export default function HomePage() {
                 <Card hoverable className="module-card">
                   <Space align="start" size={16}>
                     <span className="module-card__icon">{item.icon}</span>
-                    <Space direction="vertical" size={6}>
+                    <Space orientation="vertical" size={6}>
                       <Typography.Title level={4}>{item.title}</Typography.Title>
                       <Typography.Text type="secondary">{item.description}</Typography.Text>
                     </Space>

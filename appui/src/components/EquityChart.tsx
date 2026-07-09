@@ -1,10 +1,10 @@
 import Empty from 'antd/es/empty';
-import Tooltip from 'antd/es/tooltip';
 import { useMemo, useState, type MouseEvent } from 'react';
 
 import type { EquityPoint } from '../api/backtest';
 import { CHART_TIME_ZONE } from '../config/chart';
 import type { Language } from '../store/configSlice';
+import { getEquityTooltipPlacement } from './equityTooltip';
 
 const TIME_FORMAT_OPTIONS: Intl.DateTimeFormatOptions = {
   timeZone: CHART_TIME_ZONE,
@@ -208,34 +208,36 @@ export default function EquityChart({
         ) : null}
       </svg>
       {activePoint ? (
-        <Tooltip
-          destroyOnHidden
-          open
-          placement="top"
-          title={
-            <div className="equity-tooltip">
-              <div className="equity-tooltip__time">
-                {formatTime(activePoint.time, timeFormatter)}
-              </div>
-              <div className="equity-tooltip__grid">
-                <span>Equity</span>
-                <strong>{formatMoney(activePoint.equity, moneyFormatter)}</strong>
-                <span>Cash</span>
-                <strong>{formatMoney(activePoint.cash, moneyFormatter)}</strong>
-                <span>Position</span>
-                <strong>{activePoint.position.toLocaleString(language)}</strong>
-              </div>
-            </div>
-          }
-        >
+        <>
           <span
+            aria-hidden
             className="equity-chart__active-anchor"
             style={{
               left: `${(activePoint.x / EQUITY_CHART_WIDTH) * 100}%`,
               top: `${(activePoint.y / EQUITY_CHART_HEIGHT) * 100}%`,
             }}
           />
-        </Tooltip>
+          <div
+            className="equity-tooltip-popover"
+            role="status"
+            style={getEquityTooltipPlacement(activePoint, {
+              height: EQUITY_CHART_HEIGHT,
+              width: EQUITY_CHART_WIDTH,
+            })}
+          >
+            <div className="equity-tooltip__time">
+              {formatTime(activePoint.time, timeFormatter)}
+            </div>
+            <div className="equity-tooltip__grid">
+              <span>Equity</span>
+              <strong>{formatMoney(activePoint.equity, moneyFormatter)}</strong>
+              <span>Cash</span>
+              <strong>{formatMoney(activePoint.cash, moneyFormatter)}</strong>
+              <span>Position</span>
+              <strong>{activePoint.position.toLocaleString(language)}</strong>
+            </div>
+          </div>
+        </>
       ) : null}
     </div>
   );

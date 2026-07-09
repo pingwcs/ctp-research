@@ -17,6 +17,7 @@ import {
   MAX_BAR_SPACING,
   MIN_BAR_SPACING,
 } from '../../config/chart';
+import { CHART_THEME, type ThemeMode } from '../../config/theme';
 import type { Language, PriceScale } from '../../store/configSlice';
 import { formatChartNumber, formatChartTime } from './data';
 import { createKLineCrosshairHandler, hideKLineTooltip } from './tooltip';
@@ -28,15 +29,23 @@ interface UseLightweightChartParams {
   language: Language;
   onVisibleRangeChange: (range: LogicalRangeLike | null) => void;
   priceScale: PriceScale;
+  themeMode: ThemeMode;
   tooltipRef: MutableRefObject<HTMLDivElement | null>;
 }
 
-function createBaseChart(container: HTMLDivElement, language: Language, priceScale: PriceScale) {
+function createBaseChart(
+  container: HTMLDivElement,
+  language: Language,
+  priceScale: PriceScale,
+  themeMode: ThemeMode,
+) {
+  const colors = CHART_THEME[themeMode];
+
   return createChart(container, {
     autoSize: true,
     layout: {
-      background: { type: ColorType.Solid, color: '#09090b' },
-      textColor: '#d4d4d8',
+      background: { type: ColorType.Solid, color: colors.background },
+      textColor: colors.text,
       fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif',
     },
     localization: {
@@ -45,22 +54,22 @@ function createBaseChart(container: HTMLDivElement, language: Language, priceSca
       timeFormatter: (time: Time) => formatChartTime(Number(time), language),
     },
     grid: {
-      vertLines: { color: '#18181b' },
-      horzLines: { color: '#18181b' },
+      vertLines: { color: colors.grid },
+      horzLines: { color: colors.grid },
     },
     crosshair: {
       mode: CrosshairMode.Normal,
       vertLine: {
-        color: '#71717a',
-        labelBackgroundColor: '#0e7490',
+        color: colors.crosshair,
+        labelBackgroundColor: colors.labelBackground,
       },
       horzLine: {
-        color: '#71717a',
-        labelBackgroundColor: '#0e7490',
+        color: colors.crosshair,
+        labelBackgroundColor: colors.labelBackground,
       },
     },
     rightPriceScale: {
-      borderColor: '#27272a',
+      borderColor: colors.border,
       mode: priceScale === 'logarithmic' ? PriceScaleMode.Logarithmic : PriceScaleMode.Normal,
       scaleMargins: {
         top: CHART_PRICE_MARGIN_TOP,
@@ -68,7 +77,7 @@ function createBaseChart(container: HTMLDivElement, language: Language, priceSca
       },
     },
     timeScale: {
-      borderColor: '#27272a',
+      borderColor: colors.border,
       timeVisible: true,
       secondsVisible: false,
       rightOffset: CHART_RIGHT_OFFSET,
@@ -96,10 +105,11 @@ export function useLightweightChart({
   language,
   onVisibleRangeChange,
   priceScale,
+  themeMode,
   tooltipRef,
 }: UseLightweightChartParams) {
   const chartRef = useRef<IChartApi | null>(null);
-  const initialOptionsRef = useRef({ language, priceScale });
+  const initialOptionsRef = useRef({ language, priceScale, themeMode });
   const languageRef = useRef(language);
 
   languageRef.current = language;
@@ -112,6 +122,7 @@ export function useLightweightChart({
       containerRef.current,
       initialOptionsRef.current.language,
       initialOptionsRef.current.priceScale,
+      initialOptionsRef.current.themeMode,
     );
     const onCrosshairMove = createKLineCrosshairHandler(
       tooltipRef,
@@ -148,6 +159,36 @@ export function useLightweightChart({
       },
     });
   }, [language]);
+
+  useEffect(() => {
+    const colors = CHART_THEME[themeMode];
+    chartRef.current?.applyOptions({
+      layout: {
+        background: { type: ColorType.Solid, color: colors.background },
+        textColor: colors.text,
+      },
+      grid: {
+        vertLines: { color: colors.grid },
+        horzLines: { color: colors.grid },
+      },
+      crosshair: {
+        vertLine: {
+          color: colors.crosshair,
+          labelBackgroundColor: colors.labelBackground,
+        },
+        horzLine: {
+          color: colors.crosshair,
+          labelBackgroundColor: colors.labelBackground,
+        },
+      },
+      rightPriceScale: {
+        borderColor: colors.border,
+      },
+      timeScale: {
+        borderColor: colors.border,
+      },
+    });
+  }, [themeMode]);
 
   const resetTimeScale = useCallback(() => {
     chartRef.current?.timeScale().resetTimeScale();

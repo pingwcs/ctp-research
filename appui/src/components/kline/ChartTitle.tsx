@@ -4,6 +4,7 @@ import Tooltip from 'antd/es/tooltip';
 import Typography from 'antd/es/typography';
 
 interface ChartTitleProps {
+  activePeriod: string;
   candlesCount: number;
   maVisible: boolean;
   maWindow: number;
@@ -14,6 +15,7 @@ interface ChartTitleProps {
 }
 
 export default function ChartTitle({
+  activePeriod,
   candlesCount,
   maVisible,
   maWindow,
@@ -27,7 +29,7 @@ export default function ChartTitle({
       <div className="chart-title__main">
         <Typography.Text className="chart-title__symbol">{symbol}</Typography.Text>
         <Typography.Text className="chart-title__meta" type="secondary">
-          5min OHLCV . {offset + 1}-{offset + candlesCount} / {total || candlesCount}
+          {activePeriod} OHLCV . {offset + 1}-{offset + candlesCount} / {total || candlesCount}
         </Typography.Text>
       </div>
       <div className="chart-title__actions">

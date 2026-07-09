@@ -1,6 +1,7 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
 
 import { MA_COLORS, MA_WINDOW_MAX, MA_WINDOW_MIN } from '../config/chart';
+import type { ThemeMode } from '../config/theme';
 
 export const LANGUAGE_OPTIONS = [
   { value: 'zh-CN', label: 'Chinese' },
@@ -14,6 +15,7 @@ export type CandleColorScheme = 'china' | 'international';
 const DEFAULT_LANGUAGE: Language = LANGUAGE_OPTIONS[0].value;
 
 interface ChartConfigState {
+  themeMode: ThemeMode;
   language: Language;
   priceScale: PriceScale;
   colorScheme: CandleColorScheme;
@@ -24,9 +26,10 @@ interface ChartConfigState {
 }
 
 const initialState: ChartConfigState = {
+  themeMode: 'light',
   language: DEFAULT_LANGUAGE,
   priceScale: 'normal',
-  colorScheme: 'china',
+  colorScheme: 'international',
   maVisible: true,
   maWindow: 5,
   maColor: MA_COLORS[0],
@@ -36,6 +39,9 @@ const configSlice = createSlice({
   name: 'config',
   initialState,
   reducers: {
+    setThemeMode(state, action: PayloadAction<ThemeMode>) {
+      state.themeMode = action.payload;
+    },
     setLanguage(state, action: PayloadAction<Language>) {
       state.language = action.payload;
     },
@@ -58,6 +64,7 @@ const configSlice = createSlice({
 });
 
 export const {
+  setThemeMode,
   setLanguage,
   setPriceScale,
   setColorScheme,

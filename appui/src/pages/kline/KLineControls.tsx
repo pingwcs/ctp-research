@@ -1,5 +1,4 @@
 import Button from 'antd/es/button';
-import Card from 'antd/es/card';
 import Col from 'antd/es/col';
 import InputNumber from 'antd/es/input-number';
 import Row from 'antd/es/row';
@@ -42,7 +41,7 @@ export default function KLineControls({
   priceScale,
 }: KLineControlsProps) {
   return (
-    <Card className="control-card">
+    <div className="control-panel">
       <Row gutter={[12, 12]}>
         <Col xs={12} md={6} xl={4}>
           <Typography.Text type="secondary">Scale</Typography.Text>
@@ -105,6 +104,6 @@ export default function KLineControls({
           </Space>
         </Col>
       </Row>
-    </Card>
+    </div>
   );
 }

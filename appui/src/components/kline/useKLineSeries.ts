@@ -10,7 +10,7 @@ import {
   type Time,
 } from 'lightweight-charts';
 
-import { CHART_PALETTE } from '../../config/theme';
+import { CHART_PALETTE, CHART_THEME, type ThemeMode } from '../../config/theme';
 import type { CandleColorScheme } from '../../store/configSlice';
 
 export interface MarkerApi {
@@ -29,6 +29,7 @@ interface UseKLineSeriesParams {
   colorScheme: CandleColorScheme;
   maColor: string;
   maVisible: boolean;
+  themeMode: ThemeMode;
 }
 
 export function useKLineSeries({
@@ -36,12 +37,13 @@ export function useKLineSeries({
   colorScheme,
   maColor,
   maVisible,
+  themeMode,
 }: UseKLineSeriesParams): KLineSeriesRefs {
   const candleSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
   const volumeSeriesRef = useRef<ISeriesApi<'Histogram'> | null>(null);
   const maSeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
   const markerApiRef = useRef<MarkerApi | null>(null);
-  const initialOptionsRef = useRef({ colorScheme, maColor, maVisible });
+  const initialOptionsRef = useRef({ colorScheme, maColor, maVisible, themeMode });
 
   useEffect(() => {
     const chart = chartRef.current;
@@ -54,7 +56,7 @@ export function useKLineSeries({
       wickUpColor: colors.up,
       wickDownColor: colors.down,
       borderVisible: false,
-      priceLineColor: '#0891b2',
+      priceLineColor: CHART_THEME[initialOptionsRef.current.themeMode].priceLine,
       lastValueVisible: true,
     });
 
@@ -107,6 +109,12 @@ export function useKLineSeries({
   useEffect(() => {
     maSeriesRef.current?.applyOptions({ color: maColor, visible: maVisible });
   }, [maColor, maVisible]);
+
+  useEffect(() => {
+    candleSeriesRef.current?.applyOptions({
+      priceLineColor: CHART_THEME[themeMode].priceLine,
+    });
+  }, [themeMode]);
 
   return {
     candleSeriesRef,

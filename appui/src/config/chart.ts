@@ -23,7 +23,7 @@ export const TOOLTIP_MIN_HEIGHT = 132;
 export const TOOLTIP_OFFSET = 16;
 export const TOOLTIP_PAD = 8;
 
-export const MA_COLORS = ['#38bdf8', '#facc15', '#c084fc'] as const;
+export const MA_COLORS = ['#7bd1fa', '#f7c948', '#c8a0f0'] as const;
 
 export const NUMBER_FORMAT_OPTIONS: Intl.NumberFormatOptions = {
   maximumFractionDigits: 4,

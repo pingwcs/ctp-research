@@ -3,6 +3,7 @@
 data/
 venv/
 docs/
+/quant_runtime/runtime
 
 
 

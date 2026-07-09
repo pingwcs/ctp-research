@@ -22,16 +22,26 @@ def _payload_from_args(args: argparse.Namespace) -> dict[str, Any]:
     if args.payload_json and args.payload_file:
         raise ValueError("use only one of --payload-json or --payload-file")
 
-    value = args.payload_json
-    if args.payload_file:
-        value = Path(args.payload_file).read_text(encoding="utf-8-sig")
+    if args.payload_json or args.payload_file:
+        value = args.payload_json
+        if args.payload_file:
+            value = Path(args.payload_file).read_text(encoding="utf-8-sig")
 
-    if not value:
-        return {}
-    parsed = json.loads(value)
-    if not isinstance(parsed, dict):
-        raise ValueError("payload must be a JSON object")
-    return parsed
+        if not value:
+            return {}
+        parsed = json.loads(value)
+        if not isinstance(parsed, dict):
+            raise ValueError("payload must be a JSON object")
+        return parsed
+
+    payload = {
+        "symbol": args.symbol,
+        "strategy": args.strategy,
+        "start_time": args.start_time,
+        "end_time": args.end_time,
+        "metrics": args.metrics,
+    }
+    return {key: value for key, value in payload.items() if value not in (None, [])}
 
 
 def _minute_data_dir(args: argparse.Namespace) -> Path:
@@ -76,6 +86,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--payload-json", default=None)
     parser.add_argument("--payload-file", default=None)
+    parser.add_argument("--symbol", default=None)
+    parser.add_argument("--strategy", default="ma_cross")
+    parser.add_argument("--start-time", default=None)
+    parser.add_argument("--end-time", default=None)
+    parser.add_argument("--metric", action="append", dest="metrics", default=[])
     parser.add_argument("--minute-data-dir", default=None)
     parser.add_argument("--input-dir", default=None, help=argparse.SUPPRESS)
     return parser

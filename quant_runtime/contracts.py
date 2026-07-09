@@ -1,8 +1,11 @@
 """Domain contracts for the quant runtime boundary."""
 
 from dataclasses import asdict, dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import Any, Literal
+
+
+DEFAULT_MARKET_TIMEZONE = timezone(timedelta(hours=8))
 
 
 @dataclass(frozen=True)
@@ -20,7 +23,10 @@ class BacktestRequest:
                 return None
             if not isinstance(value, str):
                 raise ValueError("start_time and end_time must be ISO strings")
-            return datetime.fromisoformat(value.replace("Z", "+00:00"))
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+            if parsed.tzinfo is None:
+                return parsed.replace(tzinfo=DEFAULT_MARKET_TIMEZONE)
+            return parsed
 
         if "symbol" not in payload:
             raise ValueError("symbol is required")

@@ -72,6 +72,17 @@ def _in_range(
     start_time: datetime | None,
     end_time: datetime | None,
 ) -> bool:
+    def align_boundary(boundary: datetime | None) -> datetime | None:
+        if boundary is None:
+            return None
+        if value.tzinfo is not None and boundary.tzinfo is None:
+            return boundary.replace(tzinfo=value.tzinfo)
+        if value.tzinfo is None and boundary.tzinfo is not None:
+            return boundary.replace(tzinfo=None)
+        return boundary
+
+    start_time = align_boundary(start_time)
+    end_time = align_boundary(end_time)
     if start_time is not None and value < start_time:
         return False
     if end_time is not None and value > end_time:

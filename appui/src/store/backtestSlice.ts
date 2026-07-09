@@ -38,9 +38,9 @@ const initialState: BacktestState = {
   strategies: [],
   symbols: [],
   metrics: [],
-  selectedStrategy: 'ma_cross',
+  selectedStrategy: '',
   selectedSymbol: '',
-  selectedMetrics: ['total_return', 'sharpe', 'max_drawdown'],
+  selectedMetrics: [],
   startTime: '',
   endTime: '',
   result: null,
@@ -113,6 +113,12 @@ const backtestSlice = createSlice({
         state.strategies = action.payload.strategies;
         state.symbols = action.payload.symbols;
         state.metrics = action.payload.metrics;
+        if (
+          action.payload.strategies.length &&
+          !action.payload.strategies.some((strategy) => strategy.id === state.selectedStrategy)
+        ) {
+          state.selectedStrategy = action.payload.strategies[0].id;
+        }
         if (!state.selectedSymbol && action.payload.symbols.length) {
           state.selectedSymbol = action.payload.symbols[0];
         }

@@ -122,7 +122,6 @@ export default function KLinePage() {
             maColor={config.maColor}
             maVisible={config.maVisible}
             maWindow={config.maWindow}
-            markers={market.markers}
             offset={market.offset}
             chartViewport={responsiveProfile.chartViewport}
             onRequestRange={throttledRequestRange}

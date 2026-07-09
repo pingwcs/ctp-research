@@ -3,7 +3,7 @@
 
 export interface BacktestRunRequest {
   symbol: string;
-  strategy?: string;
+  strategy?: string | null;
   start_time?: string | null;
   end_time?: string | null;
   metrics?: string[];
@@ -55,7 +55,6 @@ export interface KLineResponse {
   offset: number;
   limit: number;
   candles: Candle[];
-  markers: TradeMarker[];
 }
 
 export interface MetricInfo {
@@ -70,14 +69,6 @@ export interface StrategyInfo {
   description: string;
 }
 
-export interface TradeMarker {
-  time: number;
-  position: "aboveBar" | "belowBar";
-  color: string;
-  shape: "arrowUp" | "arrowDown";
-  text: "Buy" | "Sell";
-}
-
 export interface ValidationError {
   loc: (string | number)[];
   msg: string;
@@ -88,4 +79,3 @@ export interface ValidationError {
 
 export type BacktestResult = BacktestRunResponse;
 export type BacktestRunParams = BacktestRunRequest;
-export type TradeSignalText = TradeMarker['text'];

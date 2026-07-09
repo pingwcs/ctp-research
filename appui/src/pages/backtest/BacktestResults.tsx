@@ -14,7 +14,7 @@ interface BacktestResultsProps {
 export default function BacktestResults({ language, result }: BacktestResultsProps) {
   return (
     <Space orientation="vertical" size={16} className="full-width">
-      <EquityChart language={language} points={result.equity_curve} />
+      <EquityChart language={language} points={result.equity_curve} trades={result.trades} />
       <MetricsGrid metrics={result.metrics} />
       <TradesTable language={language} trades={result.trades} />
     </Space>

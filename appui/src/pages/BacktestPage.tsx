@@ -72,7 +72,7 @@ export default function BacktestPage() {
                     value: strategy.id,
                     label: strategy.name,
                   }))}
-                  value={state.selectedStrategy}
+                  value={state.selectedStrategy || undefined}
                 />
               </div>
 
@@ -127,7 +127,7 @@ export default function BacktestPage() {
 
               <Button
                 block
-                disabled={!state.selectedSymbol}
+                disabled={!state.selectedSymbol || !state.selectedStrategy}
                 icon={<PlayCircleOutlined />}
                 loading={state.running}
                 onClick={submit}

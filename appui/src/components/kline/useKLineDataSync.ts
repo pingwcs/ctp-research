@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, type MutableRefObject } from 'react';
 import type { IChartApi } from 'lightweight-charts';
 
-import type { Candle, TradeMarker } from '../../api/market';
+import type { Candle } from '../../api/market';
 import type { CandleColorScheme } from '../../store/configSlice';
-import { toCandleData, toMaData, toSeriesMarkers, toVolumeData } from './data';
+import { toCandleData, toMaData, toVolumeData } from './data';
 import type { KLineSeriesRefs } from './useKLineSeries';
 
 const RANGE_SYNC_SUPPRESSION_MS = 80;
@@ -16,7 +16,6 @@ interface UseKLineDataSyncParams extends KLineSeriesRefs {
   handlerSuppressedRef: MutableRefObject<boolean>;
   maVisible: boolean;
   maWindow: number;
-  markers: TradeMarker[];
   offset: number;
 }
 
@@ -110,13 +109,10 @@ export function useKLineDataSync({
   maSeriesRef,
   maVisible,
   maWindow,
-  markerApiRef,
-  markers,
   offset,
   volumeSeriesRef,
 }: UseKLineDataSyncParams) {
   const previousSnapshotRef = useRef<SyncSnapshot | null>(null);
-  const previousMarkersRef = useRef<TradeMarker[] | null>(null);
   const suppressionReleaseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const candleData = useMemo(() => toCandleData(candles), [candles]);
   const volumeData = useMemo(() => toVolumeData(candles, colorScheme), [candles, colorScheme]);
@@ -124,7 +120,6 @@ export function useKLineDataSync({
     () => (maVisible ? toMaData(candles, maWindow) : []),
     [candles, maVisible, maWindow],
   );
-  const markerData = useMemo(() => toSeriesMarkers(markers), [markers]);
 
   useEffect(
     () => () => {
@@ -139,8 +134,7 @@ export function useKLineDataSync({
     if (
       !candleSeriesRef.current ||
       !volumeSeriesRef.current ||
-      !maSeriesRef.current ||
-      !markerApiRef.current
+      !maSeriesRef.current
     ) {
       return;
     }
@@ -182,11 +176,6 @@ export function useKLineDataSync({
         }
       }
 
-      if (previousMarkersRef.current !== markers) {
-        markerApiRef.current.setMarkers(markerData);
-        previousMarkersRef.current = markers;
-      }
-
       if (chart && previousGlobalRange && previousSnapshot?.offset !== offset) {
         const newFrom = Math.max(0, previousGlobalRange.left - offset);
         const newTo = Math.min(candles.length - 1, previousGlobalRange.right - offset);
@@ -214,9 +203,6 @@ export function useKLineDataSync({
     maSeriesRef,
     maVisible,
     maWindow,
-    markerApiRef,
-    markerData,
-    markers,
     offset,
     volumeData,
     volumeSeriesRef,

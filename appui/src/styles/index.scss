@@ -724,6 +724,17 @@ textarea {
   stroke-width: 2;
 }
 
+.equity-trade-marker {
+  pointer-events: none;
+  filter: drop-shadow(0 4px 7px rgba(26, 36, 56, 0.2));
+}
+
+.equity-trade-marker__shape {
+  stroke: var(--sky-panel);
+  stroke-linejoin: round;
+  stroke-width: 2;
+}
+
 .equity-chart__active-anchor {
   position: absolute;
   z-index: 2;

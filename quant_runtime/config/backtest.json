@@ -39,6 +39,20 @@
       "divisor": 1.0
     },
     {
+      "id": "sortino",
+      "name": "Sortino Ratio",
+      "description": "Annualized return adjusted by downside volatility.",
+      "stats_key": "sortino_ratio",
+      "divisor": 1.0
+    },
+    {
+      "id": "calmar",
+      "name": "Calmar Ratio",
+      "description": "Annualized return divided by maximum drawdown.",
+      "stats_key": "return_drawdown_ratio",
+      "divisor": 1.0
+    },
+    {
       "id": "max_drawdown",
       "name": "Max Drawdown",
       "description": "Largest equity drawdown.",
@@ -53,6 +67,20 @@
       "description": "Winning closed-trade ratio.",
       "stats_key": "win_rate",
       "divisor": 100.0
+    },
+    {
+      "id": "profit_factor",
+      "name": "Profit Factor",
+      "description": "Gross profit divided by gross loss.",
+      "stats_key": "profit_factor",
+      "divisor": 1.0
+    },
+    {
+      "id": "information_ratio",
+      "name": "Information Ratio",
+      "description": "Annualized excess return adjusted by tracking error.",
+      "stats_key": "information_ratio",
+      "divisor": 1.0
     }
   ]
 }

@@ -92,6 +92,35 @@ def test_run_backtest_forwards_runner_response(monkeypatch):
     assert response.metrics == {"total_return": 0.01}
 
 
+def test_run_backtest_omits_empty_time_bounds_from_runner_payload(monkeypatch):
+    observed = {}
+
+    def fake_invoke(command, payload):
+        observed["command"] = command
+        observed["payload"] = payload
+        return {
+            "symbol": "RB0909",
+            "strategy": "ma_cross",
+            "initial_cash": 100000.0,
+            "final_equity": 100000.0,
+            "trades": [],
+            "equity_curve": [],
+            "metrics": {"total_return": 0.0},
+        }
+
+    monkeypatch.setattr("appapi.services.backtest.service.invoke_runner", fake_invoke)
+
+    response = run_backtest(
+        BacktestRunRequest(symbol="RB0909", metrics=["total_return"]),
+    )
+
+    assert response.symbol == "RB0909"
+    assert observed["command"] == "run"
+    assert "strategy" not in observed["payload"]
+    assert "start_time" not in observed["payload"]
+    assert "end_time" not in observed["payload"]
+
+
 def test_run_backtest_rejects_unsupported_strategy():
     request = BacktestRunRequest(symbol="RB0909", strategy="unknown")
 

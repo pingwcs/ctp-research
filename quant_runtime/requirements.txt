@@ -1,0 +1,4 @@
+pandas>=2.2.0
+vnpy>=4.0.0
+vnpy_ctastrategy>=1.0.0
+vnpy_sqlite>=1.0.0

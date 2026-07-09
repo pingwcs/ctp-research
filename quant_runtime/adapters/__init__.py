@@ -1,0 +1,1 @@
+"""Quant runtime adapter namespace."""

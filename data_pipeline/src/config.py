@@ -29,6 +29,8 @@ class PipelineConfig:
     data_prefix: str = "data/test" if mode == "test" else "data"
     input_dir: str = os.getenv("PIPELINE_INPUT_DIR", data_prefix + "/input")
     output_dir: str = os.getenv("PIPELINE_OUTPUT_DIR", data_prefix + "/output")
+    minute_output_subdir: str = "1min"
+    kline_output_subdir: str = "5min"
     max_workers: int = int(os.getenv("PIPELINE_MAX_WORKERS", str(os.cpu_count() or 4)))
     daily_volume_file: str = "daily_volume_summary.parquet"
     quality_log_file: str = "data_quality_log.csv"

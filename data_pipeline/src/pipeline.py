@@ -3,7 +3,7 @@ Main pipeline orchestrator.
 
 Coordinates:
   - Multi-process CSV file processing via ProcessPoolExecutor
-  - Per-contract: read -> clean -> resample 5min -> MA -> export Parquet -> InfluxDB
+  - Per-contract: read -> clean -> export 1min -> resample 5min -> MA -> export Parquet -> InfluxDB
   - Cross-process log collection
   - Daily volume summary assembly
 """
@@ -36,7 +36,13 @@ def _extract_symbol(file_path: str) -> str:
     return os.path.splitext(base)[0]
 
 
-def process_single_contract(csv_path: str, output_dir: str, influx_config) -> dict:
+def process_single_contract(
+    csv_path: str,
+    output_dir: str,
+    influx_config,
+    minute_output_subdir: str | None = None,
+    kline_output_subdir: str | None = None,
+) -> dict:
     """
     Process a single contract CSV end-to-end. Designed to run in a worker process.
 
@@ -53,6 +59,7 @@ def process_single_contract(csv_path: str, output_dir: str, influx_config) -> di
         "anomalies": [],
         "daily_volume_df": None,
         "parquet_path": None,
+        "minute_parquet_path": None,
         "points_written": 0,
         "error": None,
     }
@@ -78,30 +85,43 @@ def process_single_contract(csv_path: str, output_dir: str, influx_config) -> di
         daily_vol = compute_daily_volume(df)
         result["daily_volume_df"] = daily_vol
 
-        # 4. Resample to 5-min
+        # 4. Export canonical 1-min Parquet
+        minute_subdir = minute_output_subdir or default_config.minute_output_subdir
+        one_min_dir = os.path.join(output_dir, minute_subdir)
+        os.makedirs(one_min_dir, exist_ok=True)
+        minute_parquet_path = os.path.join(one_min_dir, f"{symbol}.parquet")
+        df.to_parquet(minute_parquet_path, index=False)
+        result["minute_parquet_path"] = minute_parquet_path
+        logger.info(
+            f"[{symbol}] 1-min Parquet written: {minute_parquet_path}  ({len(df)} rows)"
+        )
+
+        # 5. Resample to 5-min
         df_5min = resample_to_5min(df)
         if df_5min.empty:
             logger.warning(f"[{symbol}] No 5-min bars after resampling.")
             return result
 
-        # 5. Calculate MAs
+        # 6. Calculate MAs
         df_5min = calculate_moving_averages(df_5min)
 
         # Sort by time
         if "bob" in df_5min.columns:
             df_5min = df_5min.sort_values("bob").reset_index(drop=True)
 
-        # 6. Export Parquet
-        os.makedirs(output_dir, exist_ok=True)
+        # 7. Export canonical 5-min Parquet
+        kline_subdir = kline_output_subdir or default_config.kline_output_subdir
+        five_min_dir = os.path.join(output_dir, kline_subdir)
+        os.makedirs(five_min_dir, exist_ok=True)
         parquet_name = f"{symbol}.parquet"
-        parquet_path = os.path.join(output_dir, parquet_name)
+        parquet_path = os.path.join(five_min_dir, parquet_name)
         df_5min.to_parquet(parquet_path, index=False)
         result["parquet_path"] = parquet_path
         logger.info(
-            f"[{symbol}] Parquet written: {parquet_path}  ({len(df_5min)} rows)"
+            f"[{symbol}] 5-min Parquet written: {parquet_path}  ({len(df_5min)} rows)"
         )
 
-        # 7. Write to InfluxDB
+        # 8. Write to InfluxDB
         points = save_to_influxdb(df_5min, influx_config)
         result["points_written"] = points
 
@@ -190,7 +210,14 @@ def run_pipeline(cfg: Optional[PipelineConfig] = None) -> dict:
         initargs=(pipeline_root,),
     ) as executor:
         future_to_file = {
-            executor.submit(process_single_contract, f, output_dir, influx_config): f
+            executor.submit(
+                process_single_contract,
+                f,
+                output_dir,
+                influx_config,
+                cfg.minute_output_subdir,
+                cfg.kline_output_subdir,
+            ): f
             for f in csv_files
         }
 

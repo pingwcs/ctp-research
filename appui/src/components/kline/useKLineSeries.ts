@@ -3,23 +3,15 @@ import {
   CandlestickSeries,
   HistogramSeries,
   LineSeries,
-  createSeriesMarkers,
   type IChartApi,
   type ISeriesApi,
-  type SeriesMarker,
-  type Time,
 } from 'lightweight-charts';
 
 import { CHART_PALETTE, CHART_THEME, type ThemeMode } from '../../config/theme';
 import type { CandleColorScheme } from '../../store/configSlice';
 
-export interface MarkerApi {
-  setMarkers: (markers: SeriesMarker<Time>[]) => void;
-}
-
 export interface KLineSeriesRefs {
   candleSeriesRef: MutableRefObject<ISeriesApi<'Candlestick'> | null>;
-  markerApiRef: MutableRefObject<MarkerApi | null>;
   maSeriesRef: MutableRefObject<ISeriesApi<'Line'> | null>;
   volumeSeriesRef: MutableRefObject<ISeriesApi<'Histogram'> | null>;
 }
@@ -42,7 +34,6 @@ export function useKLineSeries({
   const candleSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
   const volumeSeriesRef = useRef<ISeriesApi<'Histogram'> | null>(null);
   const maSeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
-  const markerApiRef = useRef<MarkerApi | null>(null);
   const initialOptionsRef = useRef({ colorScheme, maColor, maVisible, themeMode });
 
   useEffect(() => {
@@ -86,13 +77,11 @@ export function useKLineSeries({
     candleSeriesRef.current = candleSeries;
     volumeSeriesRef.current = volumeSeries;
     maSeriesRef.current = maSeries;
-    markerApiRef.current = createSeriesMarkers(candleSeries, []);
 
     return () => {
       candleSeriesRef.current = null;
       volumeSeriesRef.current = null;
       maSeriesRef.current = null;
-      markerApiRef.current = null;
     };
   }, [chartRef]);
 
@@ -118,7 +107,6 @@ export function useKLineSeries({
 
   return {
     candleSeriesRef,
-    markerApiRef,
     maSeriesRef,
     volumeSeriesRef,
   };

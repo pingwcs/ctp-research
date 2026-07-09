@@ -5,14 +5,12 @@ import {
   type Candle,
   type KLineRequest,
   type KLineResponse,
-  type TradeMarker,
 } from '../api/market';
 import { DEFAULT_KLINE_LIMIT, DEFAULT_SYMBOL } from '../config/chart';
 
 interface MarketState {
   symbol: string;
   candles: Candle[];
-  markers: TradeMarker[];
   total: number;
   // First global bar index in candles; the chart uses it to keep a stable
   // visible range while background preloading swaps the loaded data window.
@@ -30,7 +28,6 @@ interface MarketState {
 const initialState: MarketState = {
   symbol: DEFAULT_SYMBOL,
   candles: [],
-  markers: [],
   total: 0,
   offset: 0,
   limit: DEFAULT_KLINE_LIMIT,
@@ -98,7 +95,6 @@ const marketSlice = createSlice({
         state.loading = false;
         state.symbol = action.payload.symbol;
         state.candles = action.payload.candles;
-        state.markers = action.payload.markers;
         state.total = action.payload.total;
         state.offset = action.payload.offset;
         state.limit = action.payload.limit;

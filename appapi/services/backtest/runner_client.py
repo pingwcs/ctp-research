@@ -11,11 +11,26 @@ from loguru import logger
 from appapi.core.config import settings
 
 
-def _json_default(value: Any) -> str:
+def _cli_value(value: Any) -> str:
     if isinstance(value, datetime):
         return value.isoformat()
-    name = type(value).__name__
-    raise TypeError(f"Object of type {name} is not JSON serializable")
+    return str(value)
+
+
+def _extend_payload_args(args: list[str], payload: dict[str, Any]) -> None:
+    option_names = {
+        "symbol": "--symbol",
+        "strategy": "--strategy",
+        "start_time": "--start-time",
+        "end_time": "--end-time",
+    }
+    for key, option in option_names.items():
+        value = payload.get(key)
+        if value is not None and value != "":
+            args.extend([option, _cli_value(value)])
+
+    for metric in payload.get("metrics") or []:
+        args.extend(["--metric", _cli_value(metric)])
 
 
 def invoke_runner(
@@ -30,16 +45,16 @@ def invoke_runner(
         "--minute-data-dir",
         str(settings.quant_runtime_minute_data_dir),
     ]
+
     if payload is not None:
-        args.extend(
-            ["--payload-json", json.dumps(payload, default=_json_default)],
-        )
+        _extend_payload_args(args, payload)
 
     try:
         completed = subprocess.run(
             args,
             check=False,
             capture_output=True,
+            cwd=settings.project_root,
             text=True,
             timeout=settings.quant_runtime_timeout_seconds,
         )
@@ -57,6 +72,12 @@ def invoke_runner(
     try:
         output = json.loads(completed.stdout)
     except json.JSONDecodeError as exc:
+        if completed.returncode != 0 and completed.stderr:
+            logger.error("Quant runtime stderr: {}", completed.stderr)
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=completed.stderr.strip(),
+            ) from exc
         logger.error("Invalid quant runtime output: {}", completed.stdout)
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,

@@ -20,7 +20,7 @@ class MetricInfo(BaseModel):
 
 class BacktestRunRequest(BaseModel):
     symbol: str = Field(..., examples=["RB0909"])
-    strategy: str = Field(default="ma_cross")
+    strategy: str | None = None
     start_time: datetime | None = None
     end_time: datetime | None = None
     metrics: list[str] = Field(default_factory=list)

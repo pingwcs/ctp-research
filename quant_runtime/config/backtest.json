@@ -1,0 +1,58 @@
+{
+  "default_strategy": "ma_cross",
+  "engine": {
+    "initial_cash": 100000.0,
+    "contract_size": 1,
+    "rate": 0.0,
+    "slippage": 1.0,
+    "price_tick": 1.0
+  },
+  "strategies": [
+    {
+      "id": "ma_cross",
+      "name": "MA Cross",
+      "description": "Moving-average cross strategy executed by the configured adapter.",
+      "engine": "vnpy",
+      "class_path": "quant_runtime.adapters.vnpy.strategies.ma_cross_strategy.MaCrossStrategy"
+    }
+  ],
+  "metrics": [
+    {
+      "id": "total_return",
+      "name": "Total Return",
+      "description": "Total equity return.",
+      "stats_key": "total_return",
+      "divisor": 100.0
+    },
+    {
+      "id": "annual_return",
+      "name": "Annual Return",
+      "description": "Annualized return.",
+      "stats_key": "annual_return",
+      "divisor": 100.0
+    },
+    {
+      "id": "sharpe",
+      "name": "Sharpe Ratio",
+      "description": "Annualized Sharpe ratio.",
+      "stats_key": "sharpe_ratio",
+      "divisor": 1.0
+    },
+    {
+      "id": "max_drawdown",
+      "name": "Max Drawdown",
+      "description": "Largest equity drawdown.",
+      "stats_key": "max_ddpercent",
+      "divisor": 100.0,
+      "sign": -1,
+      "absolute": true
+    },
+    {
+      "id": "win_rate",
+      "name": "Win Rate",
+      "description": "Winning closed-trade ratio.",
+      "stats_key": "win_rate",
+      "divisor": 100.0
+    }
+  ]
+}

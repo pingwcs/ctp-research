@@ -4,6 +4,7 @@ data/
 venv/
 docs/
 /quant_runtime/runtime
+/.codex-bug-assets
 
 
 
@@ -28,6 +29,7 @@ var/
 *.egg-info/
 .installed.cfg
 *.egg
+.pytest_cache/
 
 
 # npm 缓存文件

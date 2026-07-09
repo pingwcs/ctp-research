@@ -73,6 +73,52 @@ def test_runner_run_accepts_payload_file(tmp_path, capsys, monkeypatch):
     assert observed["minute_data_dir"] == tmp_path.resolve()
 
 
+def test_runner_run_accepts_explicit_cli_payload_args(tmp_path, capsys, monkeypatch):
+    observed = {}
+
+    def fake_run_backtest(request, minute_data_dir):
+        observed["request"] = request
+        observed["minute_data_dir"] = minute_data_dir
+        return BacktestDomainResult(
+            symbol=request.symbol,
+            strategy=request.strategy,
+            engine="test",
+            initial_cash=100000.0,
+            final_equity=101000.0,
+            trades=[],
+            equity_curve=[],
+            metrics={"total_return": 0.01, "max_drawdown": None},
+        )
+
+    monkeypatch.setattr(
+        "quant_runtime.adapters.vnpy.backtester.run_backtest",
+        fake_run_backtest,
+    )
+
+    exit_code = runner.main(
+        [
+            "run",
+            "--minute-data-dir",
+            str(tmp_path),
+            "--symbol",
+            "RB0909",
+            "--strategy",
+            "ma_cross",
+            "--metric",
+            "total_return",
+            "--metric",
+            "max_drawdown",
+        ],
+    )
+
+    assert exit_code == 0
+    output = json.loads(capsys.readouterr().out)
+    assert output["symbol"] == "RB0909"
+    assert observed["request"].strategy == "ma_cross"
+    assert observed["request"].metrics == ["total_return", "max_drawdown"]
+    assert observed["minute_data_dir"] == tmp_path.resolve()
+
+
 def test_runner_error_outputs_error_json(capsys):
     exit_code = runner.main(["run", "--payload-json", "{}"])
 

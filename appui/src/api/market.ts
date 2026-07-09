@@ -1,33 +1,8 @@
 import { API_ROUTES } from '.';
 import { http } from './http';
+import type { Candle, KLineResponse } from './generated/types';
 
-export type TradeSignalText = 'Buy' | 'Sell';
-
-export interface Candle {
-  time: number;
-  open: number;
-  high: number;
-  low: number;
-  close: number;
-  volume: number;
-}
-
-export interface TradeMarker {
-  time: number;
-  position: 'aboveBar' | 'belowBar';
-  color: string;
-  shape: 'arrowUp' | 'arrowDown';
-  text: TradeSignalText;
-}
-
-export interface KLineResponse {
-  symbol: string;
-  total: number;
-  offset: number;
-  limit: number;
-  candles: Candle[];
-  markers: TradeMarker[];
-}
+export type { Candle, KLineResponse };
 
 export interface KLineRequest {
   symbol: string;

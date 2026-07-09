@@ -1,14 +1,19 @@
 """Domain contracts for the quant runtime boundary."""
 
 from dataclasses import asdict, dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import Any, Literal
+
+from quant_runtime.backtest_config import default_strategy_id
+
+
+DEFAULT_MARKET_TIMEZONE = timezone(timedelta(hours=8))
 
 
 @dataclass(frozen=True)
 class BacktestRequest:
     symbol: str
-    strategy: str = "ma_cross"
+    strategy: str = field(default_factory=default_strategy_id)
     start_time: datetime | None = None
     end_time: datetime | None = None
     metrics: list[str] = field(default_factory=list)
@@ -20,7 +25,10 @@ class BacktestRequest:
                 return None
             if not isinstance(value, str):
                 raise ValueError("start_time and end_time must be ISO strings")
-            return datetime.fromisoformat(value.replace("Z", "+00:00"))
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+            if parsed.tzinfo is None:
+                return parsed.replace(tzinfo=DEFAULT_MARKET_TIMEZONE)
+            return parsed
 
         if "symbol" not in payload:
             raise ValueError("symbol is required")
@@ -32,7 +40,7 @@ class BacktestRequest:
 
         return cls(
             symbol=str(payload["symbol"]),
-            strategy=str(payload.get("strategy") or "ma_cross"),
+            strategy=str(payload.get("strategy") or default_strategy_id()),
             start_time=parse_time(payload.get("start_time")),
             end_time=parse_time(payload.get("end_time")),
             metrics=metrics,

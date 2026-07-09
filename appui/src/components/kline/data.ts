@@ -1,12 +1,10 @@
 import {
   type CandlestickData,
   type HistogramData,
-  type SeriesMarker,
-  type Time,
   type UTCTimestamp,
 } from 'lightweight-charts';
 
-import type { Candle, TradeMarker } from '../../api/market';
+import type { Candle } from '../../api/market';
 import { CHART_TIME_ZONE, NUMBER_FORMAT_OPTIONS, VOLUME_FORMAT_OPTIONS } from '../../config/chart';
 import { CHART_PALETTE } from '../../config/theme';
 import type { CandleColorScheme, Language } from '../../store/configSlice';
@@ -45,7 +43,6 @@ export function formatChartTime(time: number, language: Language) {
     timeZone: CHART_TIME_ZONE,
   });
 }
-
 export function toCandleData(candles: Candle[]): CandlestickData<UTCTimestamp>[] {
   return candles.map((item) => ({
     time: toUtcTimestamp(item.time),
@@ -85,14 +82,4 @@ export function toMaData(candles: Candle[], windowSize: number) {
       value: rollingSum / sampleSize,
     };
   });
-}
-
-export function toSeriesMarkers(markers: TradeMarker[]): SeriesMarker<Time>[] {
-  return markers.map((item) => ({
-    time: toUtcTimestamp(item.time),
-    position: item.position,
-    color: item.color,
-    shape: item.shape,
-    text: item.text,
-  }));
 }

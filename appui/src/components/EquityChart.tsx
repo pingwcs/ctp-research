@@ -1,10 +1,15 @@
 import Empty from 'antd/es/empty';
-import Tooltip from 'antd/es/tooltip';
 import { useMemo, useState, type MouseEvent } from 'react';
 
-import type { EquityPoint } from '../api/backtest';
+import type { BacktestTrade, EquityPoint } from '../api/backtest';
 import { CHART_TIME_ZONE } from '../config/chart';
+import {
+  TRADE_MARKER_SIZE,
+  TRADE_MARKER_STYLES,
+  type TradeSide,
+} from '../config/tradeMarkers';
 import type { Language } from '../store/configSlice';
+import { getEquityTooltipPlacement } from './equityTooltip';
 
 const TIME_FORMAT_OPTIONS: Intl.DateTimeFormatOptions = {
   timeZone: CHART_TIME_ZONE,
@@ -29,6 +34,14 @@ const MAX_POINTS_PER_PIXEL = 2;
 type EquityChartPoint = EquityPoint & {
   x: number;
   y: number;
+};
+
+type EquityTradePoint = EquityChartPoint & {
+  className: string;
+  color: string;
+  label: string;
+  shape: (typeof TRADE_MARKER_STYLES)[TradeSide]['shape'];
+  trade: BacktestTrade;
 };
 
 function formatTime(value: number, formatter: Intl.DateTimeFormat) {
@@ -109,6 +122,51 @@ function createSampledChartPoints(points: EquityPoint[], min: number, span: numb
   return sampled;
 }
 
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function findNearestEquityPointIndex(points: EquityPoint[], time: number) {
+  let low = 0;
+  let high = points.length - 1;
+
+  while (low < high) {
+    const middle = Math.floor((low + high) / 2);
+    if (points[middle].time < time) {
+      low = middle + 1;
+    } else {
+      high = middle;
+    }
+  }
+
+  const previous = Math.max(0, low - 1);
+  return Math.abs(points[previous].time - time) <= Math.abs(points[low].time - time)
+    ? previous
+    : low;
+}
+
+function createTradePoints(
+  points: EquityPoint[],
+  trades: BacktestTrade[],
+  min: number,
+  span: number,
+): EquityTradePoint[] {
+  return trades.map((trade) => {
+    const pointIndex = findNearestEquityPointIndex(points, trade.time);
+    const point = createChartPoint(points[pointIndex], pointIndex, points.length, min, span);
+    const style = TRADE_MARKER_STYLES[trade.side];
+    return {
+      ...point,
+      y: clamp(point.y, TRADE_MARKER_SIZE + 2, EQUITY_CHART_HEIGHT - TRADE_MARKER_SIZE - 2),
+      className: style.className,
+      color: style.color,
+      label: style.label,
+      shape: style.shape,
+      trade,
+    };
+  });
+}
+
 function findNearestPointIndex(points: EquityChartPoint[], x: number) {
   let low = 0;
   let high = points.length - 1;
@@ -126,12 +184,26 @@ function findNearestPointIndex(points: EquityChartPoint[], x: number) {
   return Math.abs(points[previous].x - x) <= Math.abs(points[low].x - x) ? previous : low;
 }
 
+function tradePointPolygonPoints(marker: EquityTradePoint) {
+  const size = TRADE_MARKER_SIZE;
+  if (marker.shape === 'triangleUp') {
+    return `${marker.x},${marker.y - size} ${marker.x - size},${marker.y + size} ${
+      marker.x + size
+    },${marker.y + size}`;
+  }
+  return `${marker.x},${marker.y + size} ${marker.x - size},${marker.y - size} ${
+    marker.x + size
+  },${marker.y - size}`;
+}
+
 export default function EquityChart({
   language,
   points,
+  trades = [],
 }: {
   language: Language;
   points: EquityPoint[];
+  trades?: BacktestTrade[];
 }) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const timeFormatter = useMemo(
@@ -147,6 +219,7 @@ export default function EquityChart({
       return {
         chartPoints: [] as EquityChartPoint[],
         polyline: '',
+        tradePoints: [] as EquityTradePoint[],
       };
     }
 
@@ -156,8 +229,9 @@ export default function EquityChart({
     return {
       chartPoints,
       polyline: chartPoints.map((point) => `${point.x},${point.y}`).join(' '),
+      tradePoints: createTradePoints(points, trades, min, span),
     };
-  }, [points]);
+  }, [points, trades]);
 
   if (!points.length) return <Empty description="No equity data" />;
 
@@ -194,6 +268,21 @@ export default function EquityChart({
           strokeLinecap="round"
           strokeWidth="3"
         />
+        {chart.tradePoints.map((marker, index) => (
+          <g
+            className={`equity-trade-marker ${marker.className}`}
+            key={`${marker.trade.time}-${marker.trade.side}-${index}`}
+          >
+            <title>
+              {marker.label} {formatMoney(marker.trade.price, moneyFormatter)}
+            </title>
+            <polygon
+              className="equity-trade-marker__shape"
+              fill={marker.color}
+              points={tradePointPolygonPoints(marker)}
+            />
+          </g>
+        ))}
         {activePoint ? (
           <>
             <line
@@ -208,34 +297,36 @@ export default function EquityChart({
         ) : null}
       </svg>
       {activePoint ? (
-        <Tooltip
-          destroyOnHidden
-          open
-          placement="top"
-          title={
-            <div className="equity-tooltip">
-              <div className="equity-tooltip__time">
-                {formatTime(activePoint.time, timeFormatter)}
-              </div>
-              <div className="equity-tooltip__grid">
-                <span>Equity</span>
-                <strong>{formatMoney(activePoint.equity, moneyFormatter)}</strong>
-                <span>Cash</span>
-                <strong>{formatMoney(activePoint.cash, moneyFormatter)}</strong>
-                <span>Position</span>
-                <strong>{activePoint.position.toLocaleString(language)}</strong>
-              </div>
-            </div>
-          }
-        >
+        <>
           <span
+            aria-hidden
             className="equity-chart__active-anchor"
             style={{
               left: `${(activePoint.x / EQUITY_CHART_WIDTH) * 100}%`,
               top: `${(activePoint.y / EQUITY_CHART_HEIGHT) * 100}%`,
             }}
           />
-        </Tooltip>
+          <div
+            className="equity-tooltip-popover"
+            role="status"
+            style={getEquityTooltipPlacement(activePoint, {
+              height: EQUITY_CHART_HEIGHT,
+              width: EQUITY_CHART_WIDTH,
+            })}
+          >
+            <div className="equity-tooltip__time">
+              {formatTime(activePoint.time, timeFormatter)}
+            </div>
+            <div className="equity-tooltip__grid">
+              <span>Equity</span>
+              <strong>{formatMoney(activePoint.equity, moneyFormatter)}</strong>
+              <span>Cash</span>
+              <strong>{formatMoney(activePoint.cash, moneyFormatter)}</strong>
+              <span>Position</span>
+              <strong>{activePoint.position.toLocaleString(language)}</strong>
+            </div>
+          </div>
+        </>
       ) : null}
     </div>
   );

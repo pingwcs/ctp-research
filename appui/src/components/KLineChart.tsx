@@ -5,7 +5,7 @@ import { useMemo, useRef, type CSSProperties } from 'react';
 import Empty from 'antd/es/empty';
 import Tooltip from 'antd/es/tooltip';
 
-import type { Candle, TradeMarker } from '../api/market';
+import type { Candle } from '../api/market';
 import type { ChartViewportConfig } from '../config/responsive';
 import type { CandleColorScheme, Language, PriceScale } from '../store/configSlice';
 import type { ThemeMode } from '../config/theme';
@@ -19,7 +19,6 @@ import { useLightweightChart } from './kline/useLightweightChart';
 interface KLineChartProps {
   activePeriod?: string;
   candles: Candle[];
-  markers: TradeMarker[];
   loading: boolean;
   symbol: string;
   total: number;
@@ -104,7 +103,6 @@ function buildChartInsights(candles: Candle[], language: Language) {
 export default function KLineChart({
   activePeriod = '5m',
   candles,
-  markers,
   loading,
   symbol,
   total,
@@ -157,7 +155,6 @@ export default function KLineChart({
     handlerSuppressedRef,
     maVisible,
     maWindow,
-    markers,
     offset,
   });
 

@@ -1,11 +1,18 @@
 """Run vn.py backtests and return quant runtime domain results."""
 
 from datetime import date, datetime, time
+from importlib import import_module
 from pathlib import Path
 from typing import Any
 
 from quant_runtime.adapters.vnpy.database import import_symbol_bars
-from quant_runtime.catalog import validate_request_ids
+from quant_runtime.backtest_config import EngineConfig, MetricConfig
+from quant_runtime.catalog import (
+    engine_config,
+    metric_config,
+    strategy_config,
+    validate_request_ids,
+)
 from quant_runtime.contracts import (
     BacktestDomainResult,
     BacktestRequest,
@@ -15,13 +22,6 @@ from quant_runtime.contracts import (
 )
 from quant_runtime.market_data import MarketDataError, read_minute_bars
 from quant_runtime.settings import settings
-
-
-INITIAL_CASH = 100_000.0
-CONTRACT_SIZE = 1
-RATE = 0.0
-SLIPPAGE = 1.0
-PRICE_TICK = 1.0
 
 
 def _epoch(value: date | datetime) -> int:
@@ -40,25 +40,31 @@ def _bars_for_symbol(symbol: str, minute_data_dir: Path):
     return bars
 
 
-def _metric_value(stats: dict[str, Any], metric: str) -> float | None:
-    mapping = {
-        "total_return": ("total_return", 100.0),
-        "annual_return": ("annual_return", 100.0),
-        "sharpe": ("sharpe_ratio", 1.0),
-        "max_drawdown": ("max_ddpercent", -100.0),
-        "win_rate": ("win_rate", 100.0),
-    }
-    key, divisor = mapping[metric]
-    value = stats.get(key)
+def _load_class(class_path: str):
+    module_name, separator, class_name = class_path.rpartition(".")
+    if not separator or not module_name or not class_name:
+        raise RunnerError(500, f"invalid strategy class path: {class_path}")
+    try:
+        module = import_module(module_name)
+        return getattr(module, class_name)
+    except (ImportError, AttributeError) as exc:
+        raise RunnerError(500, f"failed to load strategy class: {class_path}") from exc
+
+
+def _metric_value(stats: dict[str, Any], metric: MetricConfig) -> float | None:
+    value = stats.get(metric.stats_key)
     if value is None:
         return None
-    number = float(value)
-    if metric == "max_drawdown":
-        return -abs(number / 100.0)
-    return number / divisor
+    number = float(value) / metric.divisor
+    if metric.absolute:
+        number = abs(number)
+    return number * metric.sign
 
 
-def _build_equity_curve(engine) -> list[EquityPoint]:
+def _build_equity_curve(
+    engine,
+    config: EngineConfig,
+) -> list[EquityPoint]:
     daily_df = getattr(engine, "daily_df", None)
     if daily_df is None or daily_df.empty:
         return []
@@ -66,10 +72,10 @@ def _build_equity_curve(engine) -> list[EquityPoint]:
     points: list[EquityPoint] = []
     for index, row in daily_df.iterrows():
         timestamp = index.to_pydatetime() if hasattr(index, "to_pydatetime") else index
-        equity = float(row.get("balance", row.get("net_pnl", 0.0) + INITIAL_CASH))
+        equity = float(row.get("balance", row.get("net_pnl", 0.0) + config.initial_cash))
         position = int(row.get("end_pos", 0) or 0)
         close_price = float(row.get("close_price", 0.0) or 0.0)
-        position_value = position * close_price * CONTRACT_SIZE
+        position_value = position * close_price * config.contract_size
         points.append(
             EquityPoint(
                 time=_epoch(timestamp),
@@ -106,6 +112,11 @@ def run_backtest(
     minute_data_dir: Path = settings.minute_data_dir,
 ) -> BacktestDomainResult:
     selected_metrics = validate_request_ids(request.strategy, request.metrics)
+    selected_strategy = strategy_config(request.strategy)
+    if selected_strategy.engine != "vnpy":
+        raise RunnerError(400, f"unsupported strategy engine: {selected_strategy.engine}")
+    strategy_class = _load_class(selected_strategy.class_path)
+    config = engine_config()
     if (
         request.start_time is not None
         and request.end_time is not None
@@ -121,7 +132,6 @@ def run_backtest(
         request.end_time,
     )
 
-    from quant_runtime.adapters.vnpy.strategies.ma_cross_strategy import MaCrossStrategy
     from vnpy.trader.constant import Exchange, Interval
     from vnpy_ctastrategy.backtesting import BacktestingEngine
 
@@ -134,27 +144,30 @@ def run_backtest(
         interval=Interval.MINUTE,
         start=start,
         end=end,
-        rate=RATE,
-        slippage=SLIPPAGE,
-        size=CONTRACT_SIZE,
-        pricetick=PRICE_TICK,
-        capital=INITIAL_CASH,
+        rate=config.rate,
+        slippage=config.slippage,
+        size=config.contract_size,
+        pricetick=config.price_tick,
+        capital=config.initial_cash,
     )
-    engine.add_strategy(MaCrossStrategy, {})
+    engine.add_strategy(strategy_class, {})
     engine.load_data()
     engine.run_backtesting()
     engine.calculate_result()
     stats = engine.calculate_statistics(output=False)
 
-    equity_curve = _build_equity_curve(engine)
+    equity_curve = _build_equity_curve(engine, config)
     trades = _build_trades(engine)
-    metrics = {metric: _metric_value(stats, metric) for metric in selected_metrics}
-    final_equity = equity_curve[-1].equity if equity_curve else INITIAL_CASH
+    metrics = {
+        metric: _metric_value(stats, metric_config(metric))
+        for metric in selected_metrics
+    }
+    final_equity = equity_curve[-1].equity if equity_curve else config.initial_cash
     return BacktestDomainResult(
         symbol=request.symbol,
         strategy=request.strategy,
         engine="vnpy",
-        initial_cash=INITIAL_CASH,
+        initial_cash=config.initial_cash,
         final_equity=final_equity,
         trades=trades,
         equity_curve=equity_curve,

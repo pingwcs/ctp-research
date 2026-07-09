@@ -35,9 +35,15 @@
             "title": "Start Time"
           },
           "strategy": {
-            "default": "ma_cross",
-            "title": "Strategy",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Strategy"
           },
           "symbol": {
             "examples": [
@@ -253,13 +259,6 @@
             "title": "Limit",
             "type": "integer"
           },
-          "markers": {
-            "items": {
-              "$ref": "#/components/schemas/TradeMarker"
-            },
-            "title": "Markers",
-            "type": "array"
-          },
           "offset": {
             "description": "Zero-based offset of this response window",
             "title": "Offset",
@@ -280,8 +279,7 @@
           "total",
           "offset",
           "limit",
-          "candles",
-          "markers"
+          "candles"
         ],
         "title": "KLineResponse",
         "type": "object"
@@ -330,52 +328,6 @@
           "description"
         ],
         "title": "StrategyInfo",
-        "type": "object"
-      },
-      "TradeMarker": {
-        "properties": {
-          "color": {
-            "title": "Color",
-            "type": "string"
-          },
-          "position": {
-            "enum": [
-              "aboveBar",
-              "belowBar"
-            ],
-            "title": "Position",
-            "type": "string"
-          },
-          "shape": {
-            "enum": [
-              "arrowUp",
-              "arrowDown"
-            ],
-            "title": "Shape",
-            "type": "string"
-          },
-          "text": {
-            "enum": [
-              "Buy",
-              "Sell"
-            ],
-            "title": "Text",
-            "type": "string"
-          },
-          "time": {
-            "description": "Unix timestamp in seconds",
-            "title": "Time",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "time",
-          "position",
-          "color",
-          "shape",
-          "text"
-        ],
-        "title": "TradeMarker",
         "type": "object"
       },
       "ValidationError": {

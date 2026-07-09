@@ -4,6 +4,8 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any, Literal
 
+from quant_runtime.backtest_config import default_strategy_id
+
 
 DEFAULT_MARKET_TIMEZONE = timezone(timedelta(hours=8))
 
@@ -11,7 +13,7 @@ DEFAULT_MARKET_TIMEZONE = timezone(timedelta(hours=8))
 @dataclass(frozen=True)
 class BacktestRequest:
     symbol: str
-    strategy: str = "ma_cross"
+    strategy: str = field(default_factory=default_strategy_id)
     start_time: datetime | None = None
     end_time: datetime | None = None
     metrics: list[str] = field(default_factory=list)
@@ -38,7 +40,7 @@ class BacktestRequest:
 
         return cls(
             symbol=str(payload["symbol"]),
-            strategy=str(payload.get("strategy") or "ma_cross"),
+            strategy=str(payload.get("strategy") or default_strategy_id()),
             start_time=parse_time(payload.get("start_time")),
             end_time=parse_time(payload.get("end_time")),
             metrics=metrics,

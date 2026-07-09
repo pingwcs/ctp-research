@@ -5,35 +5,32 @@ import os
 from pathlib import Path
 import sys
 
-
-def _repo_root() -> Path:
-    return Path(__file__).resolve().parents[1]
-
-
-def _resolve(path_value: str) -> Path:
-    path = Path(path_value)
-    if path.is_absolute():
-        return path.resolve()
-    return (_repo_root() / path).resolve()
+from global_config import load_environment_config
 
 
 @dataclass(frozen=True)
 class QuantRuntimeSettings:
-    repo_root: Path = _repo_root()
-    minute_data_dir: Path = _resolve(
-        os.getenv("QUANT_RUNTIME_1MIN_DIR", "data/output/1min"),
-    )
-    runtime_dir: Path = _resolve(
-        os.getenv("QUANT_RUNTIME_DIR", "quant_runtime/runtime"),
-    )
-    database_name: str = os.getenv("QUANT_RUNTIME_DATABASE", "sqlite")
+    repo_root: Path
+    minute_data_dir: Path
+    runtime_dir: Path
+    database_name: str
 
     @property
     def vntrader_dir(self) -> Path:
         return self.runtime_dir / ".vntrader"
 
 
-settings = QuantRuntimeSettings()
+def load_settings(environ=None) -> QuantRuntimeSettings:
+    env_config = load_environment_config(environ)
+    return QuantRuntimeSettings(
+        repo_root=env_config.project_root,
+        minute_data_dir=env_config.quant_runtime_minute_data_dir,
+        runtime_dir=env_config.quant_runtime_dir,
+        database_name=env_config.quant_runtime_database,
+    )
+
+
+settings = load_settings()
 
 
 def ensure_runtime_dirs() -> None:

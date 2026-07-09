@@ -1,61 +1,66 @@
 """Strategy and metric metadata owned by the quant runtime."""
 
-from dataclasses import asdict, dataclass
 from pathlib import Path
 import re
 
+from quant_runtime.backtest_config import (
+    EngineConfig,
+    MetricConfig,
+    StrategyConfig,
+    clear_backtest_config_cache,
+    load_backtest_config,
+)
 from quant_runtime.contracts import RunnerError
 
 
 SYMBOL_PATTERN = re.compile(r"^[A-Za-z0-9_.-]+$")
 
 
-@dataclass(frozen=True)
-class StrategyInfo:
-    id: str
-    name: str
-    description: str
-    engine: str
-
-
-@dataclass(frozen=True)
-class MetricInfo:
-    id: str
-    name: str
-    description: str
-
-
-STRATEGIES = [
-    StrategyInfo(
-        id="ma_cross",
-        name="MA Cross",
-        description="Moving-average cross strategy executed by the configured adapter.",
-        engine="vnpy",
-    ),
-]
-
-METRICS = [
-    MetricInfo("total_return", "Total Return", "Total equity return."),
-    MetricInfo("annual_return", "Annual Return", "Annualized return."),
-    MetricInfo("sharpe", "Sharpe Ratio", "Annualized Sharpe ratio."),
-    MetricInfo("max_drawdown", "Max Drawdown", "Largest equity drawdown."),
-    MetricInfo("win_rate", "Win Rate", "Winning closed-trade ratio."),
-]
-
-
 def metadata() -> dict[str, list[dict[str, str]]]:
+    config = load_backtest_config()
     return {
-        "strategies": [asdict(item) for item in STRATEGIES],
-        "metrics": [asdict(item) for item in METRICS],
+        "strategies": [
+            {
+                "id": item.id,
+                "name": item.name,
+                "description": item.description,
+                "engine": item.engine,
+            }
+            for item in config.strategies
+        ],
+        "metrics": [
+            {
+                "id": item.id,
+                "name": item.name,
+                "description": item.description,
+            }
+            for item in config.metrics
+        ],
     }
 
 
 def metric_ids() -> set[str]:
-    return {metric.id for metric in METRICS}
+    return {metric.id for metric in load_backtest_config().metrics}
 
 
 def strategy_ids() -> set[str]:
-    return {strategy.id for strategy in STRATEGIES}
+    return {strategy.id for strategy in load_backtest_config().strategies}
+
+
+def clear_catalog_cache() -> None:
+    clear_backtest_config_cache()
+
+
+def engine_config() -> EngineConfig:
+    return load_backtest_config().engine
+
+
+def metric_config(metric_id: str) -> MetricConfig:
+    return load_backtest_config().metric(metric_id)
+
+
+def strategy_config(strategy_id: str) -> StrategyConfig:
+    return load_backtest_config().strategy(strategy_id)
 
 
 def validate_symbol(symbol: str) -> None:

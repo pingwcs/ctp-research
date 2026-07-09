@@ -87,7 +87,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--payload-json", default=None)
     parser.add_argument("--payload-file", default=None)
     parser.add_argument("--symbol", default=None)
-    parser.add_argument("--strategy", default="ma_cross")
+    parser.add_argument("--strategy", default=None)
     parser.add_argument("--start-time", default=None)
     parser.add_argument("--end-time", default=None)
     parser.add_argument("--metric", action="append", dest="metrics", default=[])

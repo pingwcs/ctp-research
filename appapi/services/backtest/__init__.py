@@ -1,16 +1,20 @@
 """Public backtest service API."""
 
 from appapi.services.backtest.catalog import (
-    METRICS,
-    STRATEGIES,
+    available_metric_ids,
+    available_strategy_ids,
+    get_metrics,
+    get_strategies,
     list_backtest_symbols,
 )
-from appapi.services.backtest.engine import run_backtest
+from appapi.services.backtest.service import run_backtest
 
 
 __all__ = [
-    "METRICS",
-    "STRATEGIES",
+    "available_metric_ids",
+    "available_strategy_ids",
+    "get_metrics",
+    "get_strategies",
     "list_backtest_symbols",
     "run_backtest",
 ]

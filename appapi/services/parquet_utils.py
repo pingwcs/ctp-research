@@ -34,7 +34,7 @@ def resolve_contract_file(symbol: str) -> Path:
             ),
         )
 
-    data_dir = settings.data_dir.resolve()
+    data_dir = (settings.data_dir / "5min").resolve()
     path = (data_dir / f"{symbol}.parquet").resolve()
     if data_dir not in path.parents:
         raise HTTPException(
@@ -46,7 +46,7 @@ def resolve_contract_file(symbol: str) -> Path:
             status_code=status.HTTP_404_NOT_FOUND,
             detail=(
                 "contract parquet not found: "
-                f"../data/output/{symbol}.parquet"
+                f"../data/output/5min/{symbol}.parquet"
             ),
         )
     return path

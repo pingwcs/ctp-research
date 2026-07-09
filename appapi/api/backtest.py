@@ -9,8 +9,8 @@ from appapi.schemas.backtest import (
     StrategyInfo,
 )
 from appapi.services.backtest import (
-    METRICS,
-    STRATEGIES,
+    get_metrics,
+    get_strategies,
     list_backtest_symbols,
     run_backtest,
 )
@@ -20,8 +20,8 @@ router = APIRouter()
 
 
 @router.get("/strategies", response_model=list[StrategyInfo])
-def get_strategies() -> list[StrategyInfo]:
-    return STRATEGIES
+def list_strategies() -> list[StrategyInfo]:
+    return get_strategies()
 
 
 @router.get("/symbols", response_model=list[str])
@@ -30,8 +30,8 @@ def get_symbols() -> list[str]:
 
 
 @router.get("/metrics", response_model=list[MetricInfo])
-def get_metrics() -> list[MetricInfo]:
-    return METRICS
+def list_metrics() -> list[MetricInfo]:
+    return get_metrics()
 
 
 @router.post("/run", response_model=BacktestRunResponse)

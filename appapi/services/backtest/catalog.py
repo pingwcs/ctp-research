@@ -1,59 +1,29 @@
-"""Backtest metadata and symbol discovery."""
+"""Backtest metadata and symbol discovery via quant runtime runner."""
 
-from appapi.core.config import settings
 from appapi.schemas.backtest import MetricInfo, StrategyInfo
+from appapi.services.backtest.metadata_cache import runtime_metadata
+from appapi.services.backtest.runner_client import invoke_runner
 
 
-STRATEGIES = [
-    StrategyInfo(
-        id="ma_cross",
-        name="MA5/MA20 Cross",
-        description=(
-            "Buy on MA5 crossing above MA20, "
-            "sell on MA5 crossing below MA20."
-        ),
-    ),
-]
+def get_strategies() -> list[StrategyInfo]:
+    payload = runtime_metadata()
+    return [StrategyInfo.model_validate(item) for item in payload.get("strategies", [])]
 
-METRICS = [
-    MetricInfo(
-        id="total_return",
-        name="Total Return",
-        description="Total equity return.",
-    ),
-    MetricInfo(
-        id="annual_return",
-        name="Annual Return",
-        description="Annualized return.",
-    ),
-    MetricInfo(
-        id="sharpe",
-        name="Sharpe Ratio",
-        description="Annualized Sharpe ratio.",
-    ),
-    MetricInfo(
-        id="max_drawdown",
-        name="Max Drawdown",
-        description="Largest equity drawdown.",
-    ),
-    MetricInfo(
-        id="win_rate",
-        name="Win Rate",
-        description="Winning sell trades ratio.",
-    ),
-]
+
+def get_metrics() -> list[MetricInfo]:
+    payload = runtime_metadata()
+    return [MetricInfo.model_validate(item) for item in payload.get("metrics", [])]
 
 
 def available_metric_ids() -> set[str]:
-    return {metric.id for metric in METRICS}
+    return {metric.id for metric in get_metrics()}
+
+
+def available_strategy_ids() -> set[str]:
+    return {strategy.id for strategy in get_strategies()}
 
 
 def list_backtest_symbols() -> list[str]:
-    data_dir = settings.data_dir.resolve()
-    if not data_dir.exists():
-        return []
-    return sorted(
-        path.stem
-        for path in data_dir.glob("RB*.parquet")
-        if path.is_file()
-    )
+    payload = invoke_runner("list-symbols")
+    symbols = payload.get("symbols", [])
+    return [str(symbol) for symbol in symbols]

@@ -80,10 +80,9 @@ def _generate_types(openapi: dict[str, Any]) -> str:
         [
             "export type BacktestResult = BacktestRunResponse;",
             "export type BacktestRunParams = BacktestRunRequest;",
-            "export type TradeSignalText = TradeMarker['text'];",
-            "",
         ],
     )
+    parts.append("")
     return "\n".join(parts)
 
 

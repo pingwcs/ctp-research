@@ -2,7 +2,6 @@
 
 from datetime import datetime
 import json
-from pathlib import Path
 import subprocess
 from typing import Any
 
@@ -10,9 +9,6 @@ from fastapi import HTTPException, status
 from loguru import logger
 
 from appapi.core.config import settings
-
-
-PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
 
 def _cli_value(value: Any) -> str:
@@ -58,7 +54,7 @@ def invoke_runner(
             args,
             check=False,
             capture_output=True,
-            cwd=PROJECT_ROOT,
+            cwd=settings.project_root,
             text=True,
             timeout=settings.quant_runtime_timeout_seconds,
         )

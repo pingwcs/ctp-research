@@ -6,7 +6,7 @@ import duckdb
 from fastapi import HTTPException, status
 from loguru import logger
 
-from appapi.schemas.market import KLineResponse, TradeMarker
+from appapi.schemas.market import KLineResponse
 from appapi.services.parquet_utils import (
     column_map,
     describe_columns,
@@ -23,12 +23,6 @@ def _build_select_sql(
     limit: int,
 ) -> str:
     time_column = quote_identifier(mapped["time"])
-    signal_expr = "NULL AS signal"
-    if "signal" in mapped:
-        signal_expr = (
-            f"CAST({quote_identifier(mapped['signal'])} AS VARCHAR) AS signal"
-        )
-
     return f"""
         SELECT
             epoch(CAST({time_column} AS TIMESTAMP))::BIGINT AS time,
@@ -36,8 +30,7 @@ def _build_select_sql(
             CAST({quote_identifier(mapped["high"])} AS DOUBLE) AS high,
             CAST({quote_identifier(mapped["low"])} AS DOUBLE) AS low,
             CAST({quote_identifier(mapped["close"])} AS DOUBLE) AS close,
-            CAST({quote_identifier(mapped["volume"])} AS DOUBLE) AS volume,
-            {signal_expr}
+            CAST({quote_identifier(mapped["volume"])} AS DOUBLE) AS volume
         FROM read_parquet('{parquet_path_literal(parquet_path)}')
         WHERE {time_column} IS NOT NULL
           AND {quote_identifier(mapped["open"])} IS NOT NULL
@@ -60,32 +53,6 @@ def _build_count_sql(parquet_path: Path, mapped: dict[str, str]) -> str:
           AND {quote_identifier(mapped["low"])} IS NOT NULL
           AND {quote_identifier(mapped["close"])} IS NOT NULL
     """
-
-
-def _marker_from_signal(
-    time_value: int,
-    signal: str | None,
-) -> TradeMarker | None:
-    if not signal:
-        return None
-    normalized = signal.strip().lower()
-    if normalized == "buy":
-        return TradeMarker(
-            time=time_value,
-            position="belowBar",
-            color="#16a34a",
-            shape="arrowUp",
-            text="Buy",
-        )
-    if normalized == "sell":
-        return TradeMarker(
-            time=time_value,
-            position="aboveBar",
-            color="#dc2626",
-            shape="arrowDown",
-            text="Sell",
-        )
-    return None
 
 
 def load_kline_data(
@@ -143,8 +110,7 @@ def load_kline_data(
         ) from exc
 
     candles = []
-    markers = []
-    for time_value, open_, high, low, close, volume, signal in rows:
+    for time_value, open_, high, low, close, volume in rows:
         candle = {
             "time": int(time_value),
             "open": float(open_),
@@ -155,14 +121,9 @@ def load_kline_data(
         }
         candles.append(candle)
 
-        marker = _marker_from_signal(int(time_value), signal)
-        if marker:
-            markers.append(marker)
-
     logger.info(
-        "Loaded {} candles and {} markers for {}",
+        "Loaded {} candles for {}",
         len(candles),
-        len(markers),
         symbol,
     )
     return KLineResponse(
@@ -171,5 +132,4 @@ def load_kline_data(
         offset=safe_offset,
         limit=safe_limit,
         candles=candles,
-        markers=markers,
     )

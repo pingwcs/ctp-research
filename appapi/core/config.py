@@ -1,47 +1,38 @@
 """Application settings for the market-data API."""
 
 from dataclasses import dataclass
-import os
 from pathlib import Path
-import sys
 
-
-def _resolve_from_app(path_value: str) -> Path:
-    path = Path(path_value)
-    if path.is_absolute():
-        return path.resolve()
-    app_dir = Path(__file__).resolve().parents[1]
-    return (app_dir / path).resolve()
+from global_config import load_environment_config
 
 
 @dataclass(frozen=True)
 class Settings:
     app_name: str = "Futures Quantitative Research API"
+    project_root: Path = Path()
     market_prefix: str = "/api/market"
     backtest_prefix: str = "/api/backtest"
-    data_dir: Path = _resolve_from_app(
-        os.getenv("MARKET_DATA_DIR", "../data/output"),
-    )
-    log_dir: Path = _resolve_from_app(os.getenv("MARKET_LOG_DIR", "logs"))
-    quant_runtime_python: str = os.getenv("QUANT_RUNTIME_PYTHON", sys.executable)
-    quant_runtime_module: str = os.getenv(
-        "QUANT_RUNTIME_MODULE",
-        "quant_runtime.runner",
-    )
-    quant_runtime_timeout_seconds: float = float(
-        os.getenv("QUANT_RUNTIME_TIMEOUT_SECONDS", "120"),
-    )
-    quant_runtime_minute_data_dir: Path = _resolve_from_app(
-        os.getenv("QUANT_RUNTIME_1MIN_DIR", "../data/output/1min"),
-    )
-    cors_origins: tuple[str, ...] = tuple(
-        origin.strip()
-        for origin in os.getenv(
-            "MARKET_CORS_ORIGINS",
-            "http://localhost:5173,http://127.0.0.1:5173",
-        ).split(",")
-        if origin.strip()
+    data_dir: Path = project_root
+    log_dir: Path = project_root
+    quant_runtime_python: str = ""
+    quant_runtime_module: str = ""
+    quant_runtime_timeout_seconds: float = 0.0
+    quant_runtime_minute_data_dir: Path = project_root
+    cors_origins: tuple[str, ...] = ()
+
+
+def load_settings(environ=None) -> Settings:
+    env_config = load_environment_config(environ)
+    return Settings(
+        project_root=env_config.project_root,
+        data_dir=env_config.market_data_dir,
+        log_dir=env_config.market_log_dir,
+        quant_runtime_python=env_config.quant_runtime_python,
+        quant_runtime_module=env_config.quant_runtime_module,
+        quant_runtime_timeout_seconds=env_config.quant_runtime_timeout_seconds,
+        quant_runtime_minute_data_dir=env_config.quant_runtime_minute_data_dir,
+        cors_origins=env_config.market_cors_origins,
     )
 
 
-settings = Settings()
+settings = load_settings()

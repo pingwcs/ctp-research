@@ -1,4 +1,4 @@
-"""Tests for backtest service behavior."""
+"""Tests for appapi backtest orchestration behavior."""
 
 from datetime import datetime
 
@@ -7,44 +7,89 @@ from fastapi import HTTPException, status
 
 from appapi.schemas.backtest import BacktestRunRequest
 from appapi.services.backtest import (
-    METRICS,
-    STRATEGIES,
+    get_metrics,
+    get_strategies,
     list_backtest_symbols,
     run_backtest,
 )
-from appapi.services.backtest.metrics import fallback_metrics, selected_metrics
 
 
-def test_backtest_catalog_exports_current_strategy_and_metric_ids():
-    assert [strategy.id for strategy in STRATEGIES] == ["ma_cross"]
-    assert {metric.id for metric in METRICS} == {
-        "annual_return",
-        "max_drawdown",
-        "sharpe",
-        "total_return",
-        "win_rate",
-    }
-    assert "RB0909" in list_backtest_symbols()
+def test_backtest_catalog_forwards_runtime_metadata(monkeypatch):
+    def fake_metadata(command, payload=None):
+        if command == "metadata":
+            return {
+                "strategies": [
+                    {
+                        "id": "ma_cross",
+                        "name": "MA Cross",
+                        "description": "Runtime-owned strategy.",
+                        "engine": "vnpy",
+                    },
+                ],
+                "metrics": [
+                    {
+                        "id": "total_return",
+                        "name": "Total Return",
+                        "description": "Total equity return.",
+                    },
+                ],
+            }
+        return {"symbols": ["RB0909"]}
 
-
-def test_run_backtest_matches_current_rb0909_baseline():
-    request = BacktestRunRequest(
-        symbol="RB0909",
-        metrics=["total_return", "max_drawdown"],
+    monkeypatch.setattr(
+        "appapi.services.backtest.metadata_cache.invoke_runner",
+        fake_metadata,
+    )
+    monkeypatch.setattr(
+        "appapi.services.backtest.catalog.invoke_runner",
+        fake_metadata,
     )
 
-    response = run_backtest(request)
+    assert [strategy.id for strategy in get_strategies()] == ["ma_cross"]
+    assert [metric.id for metric in get_metrics()] == ["total_return"]
+    assert list_backtest_symbols() == ["RB0909"]
+
+
+def test_run_backtest_forwards_runner_response(monkeypatch):
+    def fake_invoke(command, payload):
+        assert command == "run"
+        assert payload["symbol"] == "RB0909"
+        return {
+            "symbol": "RB0909",
+            "strategy": "ma_cross",
+            "initial_cash": 100000.0,
+            "final_equity": 101000.0,
+            "trades": [
+                {
+                    "time": 1253026200,
+                    "side": "buy",
+                    "price": 3660.0,
+                    "quantity": 1,
+                    "cash": 0.0,
+                    "reason": "Offset.OPEN",
+                },
+            ],
+            "equity_curve": [
+                {
+                    "time": 1253026200,
+                    "equity": 101000.0,
+                    "cash": 101000.0,
+                    "position_value": 0.0,
+                    "position": 0,
+                },
+            ],
+            "metrics": {"total_return": 0.01},
+        }
+
+    monkeypatch.setattr("appapi.services.backtest.service.invoke_runner", fake_invoke)
+
+    response = run_backtest(
+        BacktestRunRequest(symbol="RB0909", metrics=["total_return"]),
+    )
 
     assert response.symbol == "RB0909"
-    assert response.strategy == "ma_cross"
-    assert response.initial_cash == 100_000.0
-    assert response.final_equity == pytest.approx(102_915.0)
-    assert len(response.trades) == 310
-    assert len(response.equity_curve) == 5355
-    assert response.metrics["total_return"] == pytest.approx(0.02915)
-    assert response.metrics["max_drawdown"] == pytest.approx(
-        -0.060334358993088255,
-    )
+    assert response.final_equity == 101000.0
+    assert response.metrics == {"total_return": 0.01}
 
 
 def test_run_backtest_rejects_unsupported_strategy():
@@ -69,20 +114,10 @@ def test_run_backtest_rejects_inverted_time_range():
     assert exc_info.value.status_code == status.HTTP_400_BAD_REQUEST
 
 
-def test_selected_metrics_rejects_unknown_metric_id():
+def test_run_backtest_rejects_unknown_metric_id():
+    request = BacktestRunRequest(symbol="RB0909", metrics=["not_a_metric"])
+
     with pytest.raises(HTTPException) as exc_info:
-        selected_metrics(["not_a_metric"], [], [])
+        run_backtest(request)
 
     assert exc_info.value.status_code == status.HTTP_400_BAD_REQUEST
-
-
-def test_fallback_metrics_returns_null_values_for_empty_curve():
-    values = fallback_metrics([], [])
-
-    assert values == {
-        "annual_return": None,
-        "max_drawdown": None,
-        "sharpe": None,
-        "total_return": None,
-        "win_rate": None,
-    }

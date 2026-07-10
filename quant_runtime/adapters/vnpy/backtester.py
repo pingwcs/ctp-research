@@ -5,7 +5,7 @@ from importlib import import_module
 from pathlib import Path
 from typing import Any
 
-from quant_runtime.adapters.vnpy.database import import_symbol_bars
+from quant_runtime.adapters.vnpy.database import prepare_symbol_bars
 from quant_runtime.backtest_config import EngineConfig, MetricConfig
 from quant_runtime.catalog import (
     engine_config,
@@ -20,7 +20,6 @@ from quant_runtime.contracts import (
     EquityPoint,
     RunnerError,
 )
-from quant_runtime.market_data import MarketDataError, read_minute_bars
 from quant_runtime.settings import settings
 
 
@@ -28,16 +27,6 @@ def _epoch(value: date | datetime) -> int:
     if isinstance(value, date) and not isinstance(value, datetime):
         value = datetime.combine(value, time.min)
     return int(value.timestamp())
-
-
-def _bars_for_symbol(symbol: str, minute_data_dir: Path):
-    try:
-        bars = read_minute_bars(symbol, minute_data_dir)
-    except MarketDataError as exc:
-        raise RunnerError(404, str(exc)) from exc
-    if not bars:
-        raise RunnerError(404, "no bars found for the requested symbol")
-    return bars
 
 
 def _load_class(class_path: str):
@@ -124,8 +113,7 @@ def run_backtest(
     ):
         raise RunnerError(400, "start_time must be before end_time")
 
-    bars = _bars_for_symbol(request.symbol, minute_data_dir)
-    import_symbol_bars(
+    bars = prepare_symbol_bars(
         request.symbol,
         minute_data_dir,
         request.start_time,

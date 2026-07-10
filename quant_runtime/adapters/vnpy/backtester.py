@@ -6,7 +6,7 @@ quant_runtime 的统一领域结果。
 最后从 vn.py daily_df/trades 抽取权益曲线、成交和配置化指标。
 """
 
-from datetime import date, datetime, time
+from datetime import date, datetime, timedelta, time
 from importlib import import_module
 from pathlib import Path
 
@@ -46,6 +46,16 @@ def _load_class(class_path: str):
         return getattr(module, class_name)
     except (ImportError, AttributeError) as exc:
         raise RunnerError(500, f"failed to load strategy class: {class_path}") from exc
+
+
+def _vnpy_load_data_range(
+    start: datetime,
+    end: datetime,
+) -> tuple[datetime, datetime]:
+    """Return a vn.py-safe load window for BacktestingEngine.load_data."""
+    if start.date() == end.date():
+        return start, end + timedelta(days=1)
+    return start, end
 
 
 def _build_equity_curve(
@@ -146,13 +156,14 @@ def run_backtest(
 
     start = request.start_time or bars[0].datetime
     end = request.end_time or bars[-1].datetime
+    load_start, load_end = _vnpy_load_data_range(start, end)
 
     engine = BacktestingEngine()
     engine.set_parameters(
         vt_symbol=f"{request.symbol}.{Exchange(bars[0].exchange).value}",
         interval=Interval.MINUTE,
-        start=start,
-        end=end,
+        start=load_start,
+        end=load_end,
         rate=config.rate,
         slippage=config.slippage,
         size=config.contract_size,

@@ -7,10 +7,13 @@ from fastapi import HTTPException, status
 
 from appapi.schemas.backtest import BacktestRunRequest
 from appapi.services.backtest import (
+    get_backtest_job_result,
+    get_backtest_job_status,
     get_metrics,
     get_strategies,
     list_backtest_symbols,
     run_backtest,
+    submit_backtest_job,
 )
 
 
@@ -121,32 +124,109 @@ def test_run_backtest_omits_empty_time_bounds_from_runner_payload(monkeypatch):
     assert "end_time" not in observed["payload"]
 
 
-def test_run_backtest_rejects_unsupported_strategy():
-    request = BacktestRunRequest(symbol="RB0909", strategy="unknown")
+def test_run_backtest_leaves_metadata_validation_to_runtime(monkeypatch):
+    observed = {}
 
-    with pytest.raises(HTTPException) as exc_info:
-        run_backtest(request)
+    def fail_metadata_lookup():
+        raise AssertionError("appapi should not consult runtime metadata before run")
 
-    assert exc_info.value.status_code == status.HTTP_400_BAD_REQUEST
+    def fake_invoke(command, payload):
+        observed["command"] = command
+        observed["payload"] = payload
+        return {
+            "symbol": "RB0909",
+            "strategy": "unknown",
+            "initial_cash": 100000.0,
+            "final_equity": 100000.0,
+            "trades": [],
+            "equity_curve": [],
+            "metrics": {"not_a_metric": None},
+        }
+
+    monkeypatch.setattr(
+        "appapi.services.backtest.metadata_cache.invoke_runner",
+        lambda command, payload=None: fail_metadata_lookup(),
+    )
+    monkeypatch.setattr("appapi.services.backtest.service.invoke_runner", fake_invoke)
+
+    response = run_backtest(
+        BacktestRunRequest(
+            symbol="RB0909",
+            strategy="unknown",
+            metrics=["not_a_metric"],
+        ),
+    )
+
+    assert response.strategy == "unknown"
+    assert observed["command"] == "run"
+    assert observed["payload"]["strategy"] == "unknown"
 
 
-def test_run_backtest_rejects_inverted_time_range():
-    request = BacktestRunRequest(
-        symbol="RB0909",
-        start_time=datetime(2010, 1, 2),
-        end_time=datetime(2010, 1, 1),
+def test_submit_status_and_fetch_backtest_job(monkeypatch):
+    calls = []
+
+    class FakeJobClient:
+        def submit(self, payload):
+            calls.append(("submit", payload))
+            return {"job_id": "job-1", "status": "queued"}
+
+        def status(self, job_id):
+            calls.append(("status", job_id))
+            return {"job_id": job_id, "status": "succeeded", "error": None}
+
+        def result(self, job_id):
+            calls.append(("result", job_id))
+            return {
+                "job_id": job_id,
+                "status": "succeeded",
+                "result": {
+                    "symbol": "RB0909",
+                    "strategy": "ma_cross",
+                    "initial_cash": 100000.0,
+                    "final_equity": 101000.0,
+                    "trades": [],
+                    "equity_curve": [],
+                    "metrics": {"total_return": 0.01},
+                },
+            }
+
+    monkeypatch.setattr(
+        "appapi.services.backtest.service.get_runner_job_client",
+        lambda: FakeJobClient(),
+    )
+
+    submitted = submit_backtest_job(
+        BacktestRunRequest(symbol="RB0909", metrics=["total_return"]),
+    )
+    status_response = get_backtest_job_status(submitted.job_id)
+    result_response = get_backtest_job_result(submitted.job_id)
+
+    assert submitted.status == "queued"
+    assert status_response.status == "succeeded"
+    assert result_response.final_equity == 101000.0
+    assert calls == [
+        ("submit", {"symbol": "RB0909", "metrics": ["total_return"]}),
+        ("status", "job-1"),
+        ("result", "job-1"),
+    ]
+
+
+def test_backtest_job_result_maps_failed_runtime_error(monkeypatch):
+    class FakeJobClient:
+        def result(self, job_id):
+            return {
+                "job_id": job_id,
+                "status": "failed",
+                "error": {"status_code": 400, "detail": "unsupported strategy: bad"},
+            }
+
+    monkeypatch.setattr(
+        "appapi.services.backtest.service.get_runner_job_client",
+        lambda: FakeJobClient(),
     )
 
     with pytest.raises(HTTPException) as exc_info:
-        run_backtest(request)
+        get_backtest_job_result("job-1")
 
     assert exc_info.value.status_code == status.HTTP_400_BAD_REQUEST
-
-
-def test_run_backtest_rejects_unknown_metric_id():
-    request = BacktestRunRequest(symbol="RB0909", metrics=["not_a_metric"])
-
-    with pytest.raises(HTTPException) as exc_info:
-        run_backtest(request)
-
-    assert exc_info.value.status_code == status.HTTP_400_BAD_REQUEST
+    assert exc_info.value.detail == "unsupported strategy: bad"

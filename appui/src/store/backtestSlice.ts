@@ -1,10 +1,14 @@
-import { createAsyncThunk, createSlice, type PayloadAction } from '@reduxjs/toolkit';
+import { createAction, createAsyncThunk, createSlice, type PayloadAction } from '@reduxjs/toolkit';
 
 import {
+  fetchBacktestJobResult,
+  fetchBacktestJobStatus,
   fetchBacktestMetrics,
   fetchBacktestStrategies,
   fetchBacktestSymbols,
-  runBacktestRequest,
+  submitBacktestJob,
+  type BacktestJobStatus,
+  type BacktestJobSubmission,
   type BacktestResult,
   type BacktestRunParams,
   type MetricInfo,
@@ -21,12 +25,16 @@ interface BacktestState {
   startTime: string;
   endTime: string;
   result: BacktestResult | null;
+  activeJobId: string;
+  jobStatus: BacktestJobStatus['status'] | '';
   loadingOptions: boolean;
   running: boolean;
   error: string | null;
 }
 
 const DEFAULT_METRIC_COUNT = 3;
+const JOB_POLL_INTERVAL_MS = 750;
+const MAX_JOB_POLLS = 240;
 
 interface BacktestOptionsPayload {
   strategies: StrategyInfo[];
@@ -44,6 +52,8 @@ const initialState: BacktestState = {
   startTime: '',
   endTime: '',
   result: null,
+  activeJobId: '',
+  jobStatus: '',
   loadingOptions: false,
   running: false,
   error: null,
@@ -52,6 +62,11 @@ const initialState: BacktestState = {
 function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error && error.message ? error.message : fallback;
 }
+
+const wait = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
+
+const backtestJobSubmitted = createAction<BacktestJobSubmission>('backtest/jobSubmitted');
+const backtestJobStatusReceived = createAction<BacktestJobStatus>('backtest/jobStatusReceived');
 
 export const fetchBacktestOptions = createAsyncThunk<
   BacktestOptionsPayload,
@@ -74,9 +89,30 @@ export const runBacktest = createAsyncThunk<
   BacktestResult,
   BacktestRunParams,
   { rejectValue: string }
->('backtest/run', async (params, { rejectWithValue }) => {
+>('backtest/run', async (params, { dispatch, rejectWithValue }) => {
   try {
-    return await runBacktestRequest(params);
+    const submitted = await submitBacktestJob(params);
+    dispatch(backtestJobSubmitted(submitted));
+
+    let current: BacktestJobStatus = {
+      job_id: submitted.job_id,
+      status: submitted.status,
+      error: null,
+    };
+    for (let attempt = 0; attempt < MAX_JOB_POLLS; attempt += 1) {
+      if (current.status === 'succeeded') {
+        return await fetchBacktestJobResult(submitted.job_id);
+      }
+      if (current.status === 'failed') {
+        throw new Error(current.error || 'Backtest failed');
+      }
+
+      await wait(JOB_POLL_INTERVAL_MS);
+      current = await fetchBacktestJobStatus(submitted.job_id);
+      dispatch(backtestJobStatusReceived(current));
+    }
+
+    throw new Error('Backtest job timed out');
   } catch (error) {
     return rejectWithValue(getErrorMessage(error, 'Backtest failed'));
   }
@@ -135,13 +171,27 @@ const backtestSlice = createSlice({
       .addCase(runBacktest.pending, (state) => {
         state.running = true;
         state.error = null;
+        state.activeJobId = '';
+        state.jobStatus = '';
+      })
+      .addCase(backtestJobSubmitted, (state, action) => {
+        state.activeJobId = action.payload.job_id;
+        state.jobStatus = action.payload.status;
+      })
+      .addCase(backtestJobStatusReceived, (state, action) => {
+        state.activeJobId = action.payload.job_id;
+        state.jobStatus = action.payload.status;
       })
       .addCase(runBacktest.fulfilled, (state, action) => {
         state.running = false;
+        state.jobStatus = 'succeeded';
         state.result = action.payload;
       })
       .addCase(runBacktest.rejected, (state, action) => {
         state.running = false;
+        if (!state.jobStatus || state.jobStatus === 'running') {
+          state.jobStatus = 'failed';
+        }
         state.error = action.payload || action.error.message || 'Backtest failed';
       });
   },

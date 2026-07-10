@@ -51,3 +51,14 @@ class BacktestRunResponse(BaseModel):
     trades: list[BacktestTrade]
     equity_curve: list[EquityPoint]
     metrics: dict[str, float | None]
+
+
+class BacktestJobSubmitResponse(BaseModel):
+    job_id: str
+    status: Literal["queued", "running", "succeeded", "failed"]
+
+
+class BacktestJobStatusResponse(BaseModel):
+    job_id: str
+    status: Literal["queued", "running", "succeeded", "failed"]
+    error: str | None = None

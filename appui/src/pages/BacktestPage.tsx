@@ -135,6 +135,12 @@ export default function BacktestPage() {
 
               {state.error ? <Alert message={state.error} showIcon type="error" /> : null}
 
+              {state.running && state.jobStatus ? (
+                <Typography.Text type="secondary">
+                  Job {state.activeJobId || 'pending'} . {state.jobStatus}
+                </Typography.Text>
+              ) : null}
+
               <Button
                 block
                 disabled={!state.selectedSymbol || !state.selectedStrategy}

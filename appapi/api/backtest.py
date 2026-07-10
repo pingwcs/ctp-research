@@ -3,16 +3,21 @@
 from fastapi import APIRouter
 
 from appapi.schemas.backtest import (
+    BacktestJobStatusResponse,
+    BacktestJobSubmitResponse,
     BacktestRunRequest,
     BacktestRunResponse,
     MetricInfo,
     StrategyInfo,
 )
 from appapi.services.backtest import (
+    get_backtest_job_result,
+    get_backtest_job_status,
     get_metrics,
     get_strategies,
     list_backtest_symbols,
     run_backtest,
+    submit_backtest_job,
 )
 
 
@@ -37,3 +42,18 @@ def list_metrics() -> list[MetricInfo]:
 @router.post("/run", response_model=BacktestRunResponse)
 def post_run_backtest(request: BacktestRunRequest) -> BacktestRunResponse:
     return run_backtest(request)
+
+
+@router.post("/jobs", response_model=BacktestJobSubmitResponse)
+def post_submit_backtest_job(request: BacktestRunRequest) -> BacktestJobSubmitResponse:
+    return submit_backtest_job(request)
+
+
+@router.get("/jobs/{job_id}", response_model=BacktestJobStatusResponse)
+def get_backtest_job(job_id: str) -> BacktestJobStatusResponse:
+    return get_backtest_job_status(job_id)
+
+
+@router.get("/jobs/{job_id}/result", response_model=BacktestRunResponse)
+def get_backtest_job_result_endpoint(job_id: str) -> BacktestRunResponse:
+    return get_backtest_job_result(job_id)

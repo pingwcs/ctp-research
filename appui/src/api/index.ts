@@ -4,4 +4,5 @@ export const API_ROUTES = {
   backtestSymbols: '/api/backtest/symbols',
   backtestMetrics: '/api/backtest/metrics',
   backtestRun: '/api/backtest/run',
+  backtestJobs: '/api/backtest/jobs',
 } as const;

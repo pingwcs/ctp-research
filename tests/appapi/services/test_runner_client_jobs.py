@@ -6,6 +6,7 @@ from types import SimpleNamespace
 
 from appapi.services.backtest import runner_client
 from appapi.services.backtest.runner_client import RunnerJobClient
+from appapi.services.backtest.runner_client import WorkerProcessTransport
 from appapi.services.backtest.runner_client import invoke_runner
 from appapi.services.backtest.runner_client import settings
 
@@ -106,3 +107,63 @@ def test_invoke_runner_uses_configured_project_root(monkeypatch, tmp_path):
 
 def test_runner_module_defaults_to_repo_root_package():
     assert settings.quant_runtime_module == "quant_runtime.runner"
+
+
+def test_worker_process_transport_reuses_worker_process(monkeypatch, tmp_path):
+    class FakeStdin:
+        def __init__(self):
+            self.writes = []
+
+        def write(self, value):
+            self.writes.append(value)
+
+        def flush(self):
+            return None
+
+    class FakeStdout:
+        def __init__(self):
+            self.lines = [
+                '{"job_id":"job-1","status":"queued"}\n',
+                '{"job_id":"job-1","status":"succeeded","error":null}\n',
+            ]
+
+        def readline(self):
+            return self.lines.pop(0)
+
+    class FakeProcess:
+        def __init__(self):
+            self.stdin = FakeStdin()
+            self.stdout = FakeStdout()
+
+        def poll(self):
+            return None
+
+    processes = []
+
+    def fake_process_factory(*args, **kwargs):
+        processes.append((args, kwargs, FakeProcess()))
+        return processes[-1][2]
+
+    fake_settings = SimpleNamespace(
+        project_root=tmp_path,
+        quant_runtime_minute_data_dir=tmp_path / "data",
+        quant_runtime_python="python",
+    )
+    monkeypatch.setattr(runner_client, "settings", fake_settings)
+    transport = WorkerProcessTransport(process_factory=fake_process_factory)
+
+    submitted = transport.invoke("submit", {"symbol": "RB0909"})
+    status_payload = transport.invoke("status", {"job_id": submitted["job_id"]})
+
+    assert submitted == {"job_id": "job-1", "status": "queued"}
+    assert status_payload["status"] == "succeeded"
+    assert len(processes) == 1
+    process = processes[0][2]
+    assert json.loads(process.stdin.writes[0]) == {
+        "command": "submit",
+        "payload": {"symbol": "RB0909"},
+    }
+    assert json.loads(process.stdin.writes[1]) == {
+        "command": "status",
+        "payload": {"job_id": "job-1"},
+    }

@@ -15,9 +15,13 @@ def test_metadata_is_owned_by_quant_runtime():
     assert [strategy["id"] for strategy in data["strategies"]] == ["ma_cross"]
     assert {metric["id"] for metric in data["metrics"]} == {
         "annual_return",
+        "calmar",
+        "profit_factor",
         "max_drawdown",
         "sharpe",
+        "sortino",
         "total_return",
+        "information_ratio",
         "win_rate",
     }
 

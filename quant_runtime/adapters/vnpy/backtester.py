@@ -3,10 +3,10 @@
 from datetime import date, datetime, time
 from importlib import import_module
 from pathlib import Path
-from typing import Any
 
 from quant_runtime.adapters.vnpy.database import prepare_symbol_bars
-from quant_runtime.backtest_config import EngineConfig, MetricConfig
+from quant_runtime.backtest_config import EngineConfig
+from quant_runtime.backtest_metrics import metric_value
 from quant_runtime.catalog import (
     engine_config,
     metric_config,
@@ -40,16 +40,6 @@ def _load_class(class_path: str):
         raise RunnerError(500, f"failed to load strategy class: {class_path}") from exc
 
 
-def _metric_value(stats: dict[str, Any], metric: MetricConfig) -> float | None:
-    value = stats.get(metric.stats_key)
-    if value is None:
-        return None
-    number = float(value) / metric.divisor
-    if metric.absolute:
-        number = abs(number)
-    return number * metric.sign
-
-
 def _build_equity_curve(
     engine,
     config: EngineConfig,
@@ -61,7 +51,9 @@ def _build_equity_curve(
     points: list[EquityPoint] = []
     for index, row in daily_df.iterrows():
         timestamp = index.to_pydatetime() if hasattr(index, "to_pydatetime") else index
-        equity = float(row.get("balance", row.get("net_pnl", 0.0) + config.initial_cash))
+        equity = float(
+            row.get("balance", row.get("net_pnl", 0.0) + config.initial_cash)
+        )
         position = int(row.get("end_pos", 0) or 0)
         close_price = float(row.get("close_price", 0.0) or 0.0)
         position_value = position * close_price * config.contract_size
@@ -75,6 +67,13 @@ def _build_equity_curve(
             ),
         )
     return points
+
+
+def _build_daily_net_pnl(engine) -> list[float]:
+    daily_df = getattr(engine, "daily_df", None)
+    if daily_df is None or daily_df.empty:
+        return []
+    return [float(row.get("net_pnl", 0.0) or 0.0) for _, row in daily_df.iterrows()]
 
 
 def _build_trades(engine) -> list[BacktestTrade]:
@@ -103,7 +102,9 @@ def run_backtest(
     selected_metrics = validate_request_ids(request.strategy, request.metrics)
     selected_strategy = strategy_config(request.strategy)
     if selected_strategy.engine != "vnpy":
-        raise RunnerError(400, f"unsupported strategy engine: {selected_strategy.engine}")
+        raise RunnerError(
+            400, f"unsupported strategy engine: {selected_strategy.engine}"
+        )
     strategy_class = _load_class(selected_strategy.class_path)
     config = engine_config()
     if (
@@ -145,9 +146,10 @@ def run_backtest(
     stats = engine.calculate_statistics(output=False)
 
     equity_curve = _build_equity_curve(engine, config)
+    daily_net_pnl = _build_daily_net_pnl(engine)
     trades = _build_trades(engine)
     metrics = {
-        metric: _metric_value(stats, metric_config(metric))
+        metric: metric_value(stats, metric_config(metric), equity_curve, daily_net_pnl)
         for metric in selected_metrics
     }
     final_equity = equity_curve[-1].equity if equity_curve else config.initial_cash

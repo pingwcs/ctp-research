@@ -4,8 +4,8 @@ import Alert from 'antd/es/alert';
 import Button from 'antd/es/button';
 import Card from 'antd/es/card';
 import Col from 'antd/es/col';
+import DatePicker from 'antd/es/date-picker';
 import Empty from 'antd/es/empty';
-import Input from 'antd/es/input';
 import Row from 'antd/es/row';
 import Select from 'antd/es/select';
 import Space from 'antd/es/space';
@@ -24,11 +24,17 @@ import {
 import { useAppDispatch, useAppSelector } from '../store';
 
 const BacktestResults = lazy(() => import('./backtest/BacktestResults'));
+const BACKTEST_DATE_TIME_FORMAT = 'YYYY-MM-DD HH:mm';
+
+function toBacktestDateTime(value: string | string[] | null) {
+  const dateTime = Array.isArray(value) ? value[0] : value;
+  return dateTime ? dateTime.replace(' ', 'T') : '';
+}
 
 export default function BacktestPage() {
   const dispatch = useAppDispatch();
   const state = useAppSelector((store) => store.backtest);
-  const language = useAppSelector((store) => store.config.language);
+  const { language, themeMode } = useAppSelector((store) => store.config);
 
   useEffect(() => {
     void dispatch(fetchBacktestOptions());
@@ -93,18 +99,22 @@ export default function BacktestPage() {
               <Row gutter={10}>
                 <Col xs={24} sm={12} lg={24} xl={12}>
                   <Typography.Text type="secondary">Start</Typography.Text>
-                  <Input
-                    onChange={(event) => dispatch(setStartTime(event.target.value))}
-                    type="datetime-local"
-                    value={state.startTime}
+                  <DatePicker
+                    className="full-width"
+                    format={BACKTEST_DATE_TIME_FORMAT}
+                    onChange={(_, dateString) => dispatch(setStartTime(toBacktestDateTime(dateString)))}
+                    placeholder="Start"
+                    showTime={{ format: 'HH:mm' }}
                   />
                 </Col>
                 <Col xs={24} sm={12} lg={24} xl={12}>
                   <Typography.Text type="secondary">End</Typography.Text>
-                  <Input
-                    onChange={(event) => dispatch(setEndTime(event.target.value))}
-                    type="datetime-local"
-                    value={state.endTime}
+                  <DatePicker
+                    className="full-width"
+                    format={BACKTEST_DATE_TIME_FORMAT}
+                    onChange={(_, dateString) => dispatch(setEndTime(toBacktestDateTime(dateString)))}
+                    placeholder="End"
+                    showTime={{ format: 'HH:mm' }}
                   />
                 </Col>
               </Row>
@@ -149,7 +159,7 @@ export default function BacktestPage() {
           >
             {state.result ? (
               <Suspense fallback={<Empty description="Loading results" />}>
-                <BacktestResults language={language} result={state.result} />
+                <BacktestResults language={language} result={state.result} themeMode={themeMode} />
               </Suspense>
             ) : (
               <Empty description="No backtest result" />

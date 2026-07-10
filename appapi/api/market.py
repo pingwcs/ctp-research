@@ -9,7 +9,7 @@ services.market_data 处理。
 from fastapi import APIRouter, Query
 
 from appapi.schemas.market import KLineResponse
-from appapi.services.market_data import load_kline_data
+from appapi.services.kline_reader import get_kline_reader
 
 
 router = APIRouter()
@@ -22,4 +22,4 @@ def get_kline(
     limit: int = Query(2000, ge=1, le=2000),
 ) -> KLineResponse:
     """业务功能: 返回单个合约的一页标准 OHLCV K 线数据。"""
-    return load_kline_data(symbol=symbol, offset=offset, limit=limit)
+    return get_kline_reader().load(symbol=symbol, offset=offset, limit=limit)

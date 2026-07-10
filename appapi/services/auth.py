@@ -13,17 +13,18 @@ import binascii
 import hashlib
 import hmac
 import json
-from pathlib import Path
 import re
 import secrets
 import time
-from typing import Any
 
 from fastapi import HTTPException, status
 
+from appapi.services.auth_credentials import (
+    ADMIN_ROLE,
+    CredentialsStore,
+    DuplicateCredentialsError,
+)
 
-ADMIN_ROLE = "admin"
-USER_ROLE = "user"
 HASH_ALGORITHM = "pbkdf2_sha256"
 HASH_ITERATIONS = 260_000
 EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
@@ -42,40 +43,33 @@ class AuthSession:
 
 
 class AuthService:
-    def __init__(self, users_file: Path, token_secret: str):
-        self.users_file = users_file
+    def __init__(self, credentials_store: CredentialsStore, token_secret: str):
+        self.credentials_store = credentials_store
         self.token_secret = token_secret
 
     def register(self, email: str, password: str) -> AuthSession:
         normalized_email = self._normalize_email(email)
         self._validate_password(password)
-        users = self._load_users()
-
-        if self._find_user(users, normalized_email) is not None:
+        try:
+            user_record = self.credentials_store.create_user(
+                normalized_email,
+                self._hash_password(password),
+            )
+        except DuplicateCredentialsError as exc:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Email is already registered",
-            )
+            ) from exc
 
-        role = ADMIN_ROLE if not users else USER_ROLE
-        user_record = {
-            "email": normalized_email,
-            "password_hash": self._hash_password(password),
-            "role": role,
-        }
-        users.append(user_record)
-        self._save_users(users)
-
-        user = AuthenticatedUser(email=normalized_email, role=role)
+        user = AuthenticatedUser(email=user_record.email, role=user_record.role)
         return AuthSession(access_token=self._create_access_token(user), user=user)
 
     def login(self, email: str, password: str) -> AuthSession:
         normalized_email = self._normalize_email(email)
-        users = self._load_users()
-        user_record = self._find_user(users, normalized_email)
+        user_record = self.credentials_store.find_user(normalized_email)
         if user_record is None or not self._verify_password(
             password,
-            str(user_record.get("password_hash", "")),
+            user_record.password_hash,
         ):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -84,8 +78,8 @@ class AuthService:
             )
 
         user = AuthenticatedUser(
-            email=str(user_record["email"]),
-            role=str(user_record["role"]),
+            email=user_record.email,
+            role=user_record.role,
         )
         return AuthSession(access_token=self._create_access_token(user), user=user)
 
@@ -101,8 +95,7 @@ class AuthService:
             )
 
         email = self._email_from_token(authorization.removeprefix("Bearer ").strip())
-        users = self._load_users()
-        user_record = self._find_user(users, email)
+        user_record = self.credentials_store.find_user(email)
         if user_record is None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -111,8 +104,8 @@ class AuthService:
             )
 
         return AuthenticatedUser(
-            email=str(user_record["email"]),
-            role=str(user_record["role"]),
+            email=user_record.email,
+            role=user_record.role,
         )
 
     def require_admin(self, user: AuthenticatedUser) -> AuthenticatedUser:
@@ -178,44 +171,6 @@ class AuthService:
             hashlib.sha256,
         ).digest()
         return _base64_url_encode(digest)
-
-    def _load_users(self) -> list[dict[str, Any]]:
-        if not self.users_file.exists():
-            return []
-
-        try:
-            data = json.loads(self.users_file.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as exc:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="User store is not readable",
-            ) from exc
-
-        if not isinstance(data, list):
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="User store is invalid",
-            )
-        return [item for item in data if isinstance(item, dict)]
-
-    def _save_users(self, users: list[dict[str, Any]]) -> None:
-        self.users_file.parent.mkdir(parents=True, exist_ok=True)
-        temp_file = self.users_file.with_suffix(f"{self.users_file.suffix}.tmp")
-        temp_file.write_text(
-            json.dumps(users, indent=2, sort_keys=True),
-            encoding="utf-8",
-        )
-        temp_file.replace(self.users_file)
-
-    def _find_user(
-        self,
-        users: list[dict[str, Any]],
-        email: str,
-    ) -> dict[str, Any] | None:
-        return next(
-            (user for user in users if str(user.get("email", "")).lower() == email),
-            None,
-        )
 
     def _hash_password(self, password: str) -> str:
         salt = secrets.token_bytes(16)

@@ -10,11 +10,12 @@ from appapi.schemas.auth import (
     RegisterRequest,
 )
 from appapi.services.auth import AuthService, AuthenticatedUser
+from appapi.services.auth_credentials import PostgresCredentialsStore
 
 
 router = APIRouter()
 _auth_service = AuthService(
-    users_file=settings.auth_users_file,
+    credentials_store=PostgresCredentialsStore(settings.auth_database_dsn),
     token_secret=settings.auth_token_secret,
 )
 

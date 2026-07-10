@@ -22,7 +22,7 @@ class Settings:
     auth_prefix: str = "/api/auth"
     data_dir: Path = project_root
     log_dir: Path = project_root
-    auth_users_file: Path = project_root
+    auth_database_dsn: str = ""
     auth_token_secret: str = ""
     quant_runtime_python: str = ""
     quant_runtime_module: str = ""
@@ -38,7 +38,7 @@ def load_settings(environ=None) -> Settings:
         project_root=env_config.project_root,
         data_dir=env_config.market_data_dir,
         log_dir=env_config.market_log_dir,
-        auth_users_file=env_config.auth_users_file,
+        auth_database_dsn=env_config.auth_database_dsn,
         auth_token_secret=env_config.auth_token_secret,
         quant_runtime_python=env_config.quant_runtime_python,
         quant_runtime_module=env_config.quant_runtime_module,

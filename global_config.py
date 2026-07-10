@@ -17,6 +17,8 @@ ENV_PROJECT_ROOT = "CTP_RESEARCH_PROJECT_ROOT"
 ENV_MARKET_DATA_DIR = "MARKET_DATA_DIR"
 ENV_MARKET_LOG_DIR = "MARKET_LOG_DIR"
 ENV_MARKET_CORS_ORIGINS = "MARKET_CORS_ORIGINS"
+ENV_AUTH_USERS_FILE = "AUTH_USERS_FILE"
+ENV_AUTH_TOKEN_SECRET = "AUTH_TOKEN_SECRET"
 ENV_QUANT_RUNTIME_1MIN_DIR = "QUANT_RUNTIME_1MIN_DIR"
 ENV_QUANT_RUNTIME_DIR = "QUANT_RUNTIME_DIR"
 ENV_QUANT_RUNTIME_DATABASE = "QUANT_RUNTIME_DATABASE"
@@ -31,6 +33,8 @@ DEFAULT_MARKET_CORS_ORIGINS = (
     "http://localhost:5173",
     "http://127.0.0.1:5173",
 )
+DEFAULT_AUTH_USERS_FILE = "appapi/data/users.json"
+DEFAULT_AUTH_TOKEN_SECRET = "local-development-auth-secret"
 DEFAULT_QUANT_RUNTIME_1MIN_DIR = "data/output/1min"
 DEFAULT_QUANT_RUNTIME_DIR = "quant_runtime/runtime"
 DEFAULT_QUANT_RUNTIME_DATABASE = "sqlite"
@@ -48,6 +52,8 @@ class EnvironmentConfig:
     market_data_dir: Path
     market_log_dir: Path
     market_cors_origins: tuple[str, ...]
+    auth_users_file: Path
+    auth_token_secret: str
     quant_runtime_minute_data_dir: Path
     quant_runtime_dir: Path
     quant_runtime_database: str
@@ -102,6 +108,14 @@ def load_environment_config(
             env.get(ENV_MARKET_LOG_DIR, DEFAULT_MARKET_LOG_DIR),
         ),
         market_cors_origins=cors_origins,
+        auth_users_file=_resolve_path(
+            project_root,
+            env.get(ENV_AUTH_USERS_FILE, DEFAULT_AUTH_USERS_FILE),
+        ),
+        auth_token_secret=env.get(
+            ENV_AUTH_TOKEN_SECRET,
+            DEFAULT_AUTH_TOKEN_SECRET,
+        ),
         quant_runtime_minute_data_dir=_resolve_path(
             project_root,
             env.get(ENV_QUANT_RUNTIME_1MIN_DIR, DEFAULT_QUANT_RUNTIME_1MIN_DIR),

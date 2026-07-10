@@ -1,12 +1,14 @@
 import { configureStore } from '@reduxjs/toolkit';
 import { useDispatch, useSelector, type TypedUseSelectorHook } from 'react-redux';
 
+import authReducer from './authSlice';
 import backtestReducer from './backtestSlice';
 import configReducer from './configSlice';
 import marketReducer from './marketSlice';
 
 export const store = configureStore({
   reducer: {
+    auth: authReducer,
     backtest: backtestReducer,
     config: configReducer,
     market: marketReducer,

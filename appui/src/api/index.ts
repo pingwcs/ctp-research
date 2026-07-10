@@ -5,4 +5,7 @@ export const API_ROUTES = {
   backtestMetrics: '/api/backtest/metrics',
   backtestRun: '/api/backtest/run',
   backtestJobs: '/api/backtest/jobs',
+  authRegister: '/api/auth/register',
+  authLogin: '/api/auth/login',
+  authMe: '/api/auth/me',
 } as const;

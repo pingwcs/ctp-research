@@ -32,10 +32,9 @@ var/
 .pytest_cache/
 
 # test files
-*.test.ts
-*.test.js
-*.test.py
-tests
+tests/
+
+
 
 
 # npm 缓存文件

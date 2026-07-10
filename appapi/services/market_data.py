@@ -1,4 +1,10 @@
-"""Read and normalize OHLCV data from contract parquet files."""
+"""Read and normalize OHLCV data from contract parquet files.
+
+业务功能: 为行情接口读取本地 5 分钟合约 parquet，并输出前端图表需要的
+标准 OHLCV 窗口。
+算法要点: 用 DuckDB 原地扫描 parquet，只选择非空 OHLC 字段，按时间
+排序后通过 LIMIT/OFFSET 做窗口分页，避免一次把大文件全部读入 Python。
+"""
 
 from pathlib import Path
 
@@ -22,6 +28,7 @@ def _build_select_sql(
     offset: int,
     limit: int,
 ) -> str:
+    """算法要点: 构造标准 OHLCV 投影 SQL，并把时间转成 Unix 秒。"""
     time_column = quote_identifier(mapped["time"])
     return f"""
         SELECT
@@ -43,6 +50,7 @@ def _build_select_sql(
 
 
 def _build_count_sql(parquet_path: Path, mapped: dict[str, str]) -> str:
+    """算法要点: 统计可绘制蜡烛数量，过滤规则和查询窗口保持一致。"""
     time_column = quote_identifier(mapped["time"])
     return f"""
         SELECT COUNT(*)::BIGINT
@@ -60,6 +68,11 @@ def load_kline_data(
     offset: int | None = None,
     limit: int = 2000,
 ) -> KLineResponse:
+    """业务功能: 读取指定合约的一页 K 线数据并返回图表 DTO。
+
+    算法要点: 未指定 offset 时默认取最新窗口；指定 offset 时限制在
+    合法范围内，保证返回窗口不会越过有效数据边界。
+    """
     parquet_path = resolve_contract_file(symbol)
     safe_limit = max(1, min(limit, 2000))
     logger.info(

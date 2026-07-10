@@ -1,4 +1,10 @@
-"""Backtest metric calculations."""
+"""Backtest metric calculations.
+
+业务功能: 将 vn.py 统计结果、权益曲线和每日净盈亏转换成配置化绩效指标。
+算法要点: 优先使用 backtest.json 中 stats_key 指向的引擎原生统计值；引擎
+没有提供时，再用权益曲线或 daily_net_pnl 计算 Calmar、Profit Factor、
+Sortino 和 Information Ratio。
+"""
 
 from collections.abc import Sequence
 from math import sqrt
@@ -12,6 +18,7 @@ ANNUALIZATION_DAYS = 240
 
 
 def _stat_number(stats: dict[str, Any], key: str) -> float | None:
+    """算法要点: 从 vn.py stats 中安全读取数值字段。"""
     value = stats.get(key)
     if value is None:
         return None
@@ -19,6 +26,7 @@ def _stat_number(stats: dict[str, Any], key: str) -> float | None:
 
 
 def _configured_stat_value(stats: dict[str, Any], metric: MetricConfig) -> float | None:
+    """业务功能: 按配置的 divisor/sign/absolute 规则转换引擎原生指标。"""
     value = _stat_number(stats, metric.stats_key)
     if value is None:
         return None
@@ -29,6 +37,7 @@ def _configured_stat_value(stats: dict[str, Any], metric: MetricConfig) -> float
 
 
 def _annual_return(stats: dict[str, Any]) -> float | None:
+    """算法要点: vn.py annual_return 为百分数，这里转成小数收益率。"""
     value = _stat_number(stats, "annual_return")
     if value is None:
         return None
@@ -36,6 +45,7 @@ def _annual_return(stats: dict[str, Any]) -> float | None:
 
 
 def _max_drawdown(stats: dict[str, Any]) -> float | None:
+    """算法要点: vn.py max_ddpercent 为百分数且可能为负，这里转绝对小数。"""
     value = _stat_number(stats, "max_ddpercent")
     if value is None:
         return None
@@ -43,6 +53,7 @@ def _max_drawdown(stats: dict[str, Any]) -> float | None:
 
 
 def _daily_returns(equity_curve: Sequence[EquityPoint]) -> list[float]:
+    """算法要点: 用相邻权益点计算日收益率，跳过前一权益为 0 的异常点。"""
     returns: list[float] = []
     for previous, current in zip(equity_curve, equity_curve[1:]):
         if previous.equity == 0:
@@ -52,6 +63,7 @@ def _daily_returns(equity_curve: Sequence[EquityPoint]) -> list[float]:
 
 
 def _population_std(values: Sequence[float]) -> float | None:
+    """算法要点: 使用总体标准差，适配完整回测样本序列。"""
     if not values:
         return None
     mean = sum(values) / len(values)
@@ -60,6 +72,7 @@ def _population_std(values: Sequence[float]) -> float | None:
 
 
 def _calmar(stats: dict[str, Any]) -> float | None:
+    """算法要点: Calmar = 年化收益率 / 最大回撤。"""
     annual_return = _annual_return(stats)
     max_drawdown = _max_drawdown(stats)
     if annual_return is None or not max_drawdown:
@@ -68,6 +81,7 @@ def _calmar(stats: dict[str, Any]) -> float | None:
 
 
 def _profit_factor(daily_net_pnl: Sequence[float]) -> float | None:
+    """算法要点: Profit Factor = 总盈利 / abs(总亏损)。"""
     gross_profit = sum(value for value in daily_net_pnl if value > 0)
     gross_loss = abs(sum(value for value in daily_net_pnl if value < 0))
     if not gross_loss:
@@ -76,6 +90,7 @@ def _profit_factor(daily_net_pnl: Sequence[float]) -> float | None:
 
 
 def _sortino(stats: dict[str, Any], equity_curve: Sequence[EquityPoint]) -> float | None:
+    """算法要点: Sortino 用下行波动率而非全样本波动率调整年化收益。"""
     annual_return = _annual_return(stats)
     returns = _daily_returns(equity_curve)
     if annual_return is None or not returns:
@@ -89,6 +104,7 @@ def _sortino(stats: dict[str, Any], equity_curve: Sequence[EquityPoint]) -> floa
 
 
 def _information_ratio(stats: dict[str, Any], equity_curve: Sequence[EquityPoint]) -> float | None:
+    """算法要点: 未接入基准收益时，用权益日收益标准差近似跟踪误差。"""
     annual_return = _annual_return(stats)
     return_std = _population_std(_daily_returns(equity_curve))
     if annual_return is None or not return_std:
@@ -102,6 +118,7 @@ def metric_value(
     equity_curve: Sequence[EquityPoint],
     daily_net_pnl: Sequence[float],
 ) -> float | None:
+    """业务功能: 计算一个已配置指标的最终输出值。"""
     configured = _configured_stat_value(stats, metric)
     if configured is not None:
         return configured

@@ -1,4 +1,10 @@
-"""Run vn.py backtests and return quant runtime domain results."""
+"""Run vn.py backtests and return quant runtime domain results.
+
+业务功能: 将 BacktestRequest 转换为 vn.py BacktestingEngine 执行，并返回
+quant_runtime 的统一领域结果。
+算法要点: 先导入请求范围内的分钟 bar，再设置引擎参数、运行策略、计算统计，
+最后从 vn.py daily_df/trades 抽取权益曲线、成交和配置化指标。
+"""
 
 from datetime import date, datetime, time
 from importlib import import_module
@@ -24,12 +30,14 @@ from quant_runtime.settings import settings
 
 
 def _epoch(value: date | datetime) -> int:
+    """算法要点: date 按当日零点转换，统一输出 Unix 秒。"""
     if isinstance(value, date) and not isinstance(value, datetime):
         value = datetime.combine(value, time.min)
     return int(value.timestamp())
 
 
 def _load_class(class_path: str):
+    """业务功能: 按 backtest.json 中的 class_path 动态加载策略类。"""
     module_name, separator, class_name = class_path.rpartition(".")
     if not separator or not module_name or not class_name:
         raise RunnerError(500, f"invalid strategy class path: {class_path}")
@@ -44,6 +52,11 @@ def _build_equity_curve(
     engine,
     config: EngineConfig,
 ) -> list[EquityPoint]:
+    """业务功能: 从 vn.py daily_df 构造前端需要的权益曲线。
+
+    算法要点: 优先使用 balance；缺失时用 initial_cash + net_pnl 兜底。
+    持仓市值按 end_pos * close_price * contract_size 估算，现金为权益减市值。
+    """
     daily_df = getattr(engine, "daily_df", None)
     if daily_df is None or daily_df.empty:
         return []
@@ -70,6 +83,7 @@ def _build_equity_curve(
 
 
 def _build_daily_net_pnl(engine) -> list[float]:
+    """业务功能: 提取每日净盈亏序列，供 Profit Factor 等指标计算。"""
     daily_df = getattr(engine, "daily_df", None)
     if daily_df is None or daily_df.empty:
         return []
@@ -77,6 +91,7 @@ def _build_daily_net_pnl(engine) -> list[float]:
 
 
 def _build_trades(engine) -> list[BacktestTrade]:
+    """业务功能: 将 vn.py 成交对象转换成通用 BacktestTrade。"""
     from vnpy.trader.constant import Direction
 
     trades: list[BacktestTrade] = []
@@ -99,6 +114,11 @@ def run_backtest(
     request: BacktestRequest,
     minute_data_dir: Path = settings.minute_data_dir,
 ) -> BacktestDomainResult:
+    """业务功能: 执行一次 VNPY 回测并返回领域结果。
+
+    算法要点: 请求未给时间范围时使用导入 bar 的首尾时间；指标列表先通过
+    catalog 校验和默认补全，再逐个调用 metric_value 输出。
+    """
     selected_metrics = validate_request_ids(request.strategy, request.metrics)
     selected_strategy = strategy_config(request.strategy)
     if selected_strategy.engine != "vnpy":

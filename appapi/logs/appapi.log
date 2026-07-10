@@ -34,3 +34,31 @@
 2026-07-07 14:00:19.653 | INFO     | appapi.services.market_data:load_kline_data:174 - Loaded 5355 candles and 0 markers for RB0909
 2026-07-07 14:00:19.760 | INFO     | appapi.services.market_data:load_kline_data:141 - Loading kline data: symbol=RB0909, file=E:\BugHub\FutureData\ctp_reaserch\data\output\RB0909.parquet
 2026-07-07 14:00:19.795 | INFO     | appapi.services.market_data:load_kline_data:174 - Loaded 5355 candles and 0 markers for RB0909
+2026-07-10 01:09:41.544 | INFO     | appapi.services.market_data:load_kline_data:65 - Loading kline data: symbol=RB0909, file=E:\BugHub\FutureData\ctp_reaserch\data\output\5min\RB0909.parquet, offset=None, limit=2000
+2026-07-10 01:09:41.567 | INFO     | appapi.services.market_data:load_kline_data:124 - Loaded 2000 candles for RB0909
+2026-07-10 10:59:46.732 | INFO     | appapi.services.market_data:load_kline_data:65 - Loading kline data: symbol=RB0909, file=E:\BugHub\FutureData\ctp_reaserch\data\output\5min\RB0909.parquet, offset=None, limit=2000
+2026-07-10 10:59:46.782 | INFO     | appapi.services.market_data:load_kline_data:124 - Loaded 2000 candles for RB0909
+2026-07-10 11:52:29.381 | INFO     | appapi.main:on_startup:52 - Futures Quantitative Research API started; parquet data dir=E:\BugHub\FutureData\ctp_reaserch\data\output
+2026-07-10 11:52:49.322 | INFO     | appapi.services.market_data:load_kline_data:65 - Loading kline data: symbol=RB0909, file=E:\BugHub\FutureData\ctp_reaserch\data\output\5min\RB0909.parquet, offset=None, limit=2000
+2026-07-10 11:52:49.824 | INFO     | appapi.services.market_data:load_kline_data:124 - Loaded 2000 candles for RB0909
+2026-07-10 12:56:05.227 | INFO     | appapi.services.market_data:load_kline_data:65 - Loading kline data: symbol=RB0909, file=E:\BugHub\FutureData\ctp_reaserch\data\output\5min\RB0909.parquet, offset=None, limit=2000
+2026-07-10 12:56:05.253 | INFO     | appapi.services.market_data:load_kline_data:124 - Loaded 2000 candles for RB0909
+2026-07-10 12:56:07.504 | INFO     | appapi.services.market_data:load_kline_data:65 - Loading kline data: symbol=RB0909, file=E:\BugHub\FutureData\ctp_reaserch\data\output\5min\RB0909.parquet, offset=2355, limit=2000
+2026-07-10 12:56:07.532 | INFO     | appapi.services.market_data:load_kline_data:124 - Loaded 2000 candles for RB0909
+2026-07-10 12:56:07.815 | INFO     | appapi.services.market_data:load_kline_data:65 - Loading kline data: symbol=RB0909, file=E:\BugHub\FutureData\ctp_reaserch\data\output\5min\RB0909.parquet, offset=1355, limit=2000
+2026-07-10 12:56:07.841 | INFO     | appapi.services.market_data:load_kline_data:124 - Loaded 2000 candles for RB0909
+2026-07-10 12:56:08.972 | INFO     | appapi.services.market_data:load_kline_data:65 - Loading kline data: symbol=RB0909, file=E:\BugHub\FutureData\ctp_reaserch\data\output\5min\RB0909.parquet, offset=2355, limit=2000
+2026-07-10 12:56:09.003 | INFO     | appapi.services.market_data:load_kline_data:124 - Loaded 2000 candles for RB0909
+2026-07-10 12:56:09.333 | INFO     | appapi.services.market_data:load_kline_data:65 - Loading kline data: symbol=RB0909, file=E:\BugHub\FutureData\ctp_reaserch\data\output\5min\RB0909.parquet, offset=1355, limit=2000
+2026-07-10 12:56:09.358 | INFO     | appapi.services.market_data:load_kline_data:124 - Loaded 2000 candles for RB0909
+2026-07-10 12:56:09.855 | INFO     | appapi.services.market_data:load_kline_data:65 - Loading kline data: symbol=RB0909, file=E:\BugHub\FutureData\ctp_reaserch\data\output\5min\RB0909.parquet, offset=2355, limit=2000
+2026-07-10 12:56:09.884 | INFO     | appapi.services.market_data:load_kline_data:124 - Loaded 2000 candles for RB0909
+2026-07-10 12:56:10.423 | INFO     | appapi.services.market_data:load_kline_data:65 - Loading kline data: symbol=RB0909, file=E:\BugHub\FutureData\ctp_reaserch\data\output\5min\RB0909.parquet, offset=1355, limit=2000
+2026-07-10 12:56:10.461 | INFO     | appapi.services.market_data:load_kline_data:124 - Loaded 2000 candles for RB0909
+2026-07-10 12:56:10.740 | INFO     | appapi.services.market_data:load_kline_data:65 - Loading kline data: symbol=RB0909, file=E:\BugHub\FutureData\ctp_reaserch\data\output\5min\RB0909.parquet, offset=2355, limit=2000
+2026-07-10 12:56:10.764 | INFO     | appapi.services.market_data:load_kline_data:124 - Loaded 2000 candles for RB0909
+2026-07-10 12:56:11.504 | INFO     | appapi.services.market_data:load_kline_data:65 - Loading kline data: symbol=RB0909, file=E:\BugHub\FutureData\ctp_reaserch\data\output\5min\RB0909.parquet, offset=1355, limit=2000
+2026-07-10 12:56:11.525 | INFO     | appapi.services.market_data:load_kline_data:124 - Loaded 2000 candles for RB0909
+2026-07-10 12:57:59.235 | INFO     | appapi.main:on_startup:52 - Futures Quantitative Research API started; parquet data dir=E:\BugHub\FutureData\ctp_reaserch\data\output
+2026-07-10 13:01:20.658 | INFO     | appapi.services.market_data:load_kline_data:65 - Loading kline data: symbol=RB0909, file=E:\BugHub\FutureData\ctp_reaserch\data\output\5min\RB0909.parquet, offset=None, limit=2000
+2026-07-10 13:01:21.056 | INFO     | appapi.services.market_data:load_kline_data:124 - Loaded 2000 candles for RB0909

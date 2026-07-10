@@ -1,4 +1,9 @@
-"""Loguru logging setup."""
+"""Loguru logging setup.
+
+业务功能: 统一 appapi 控制台日志和滚动文件日志。
+算法要点: 使用 enqueue=True 让多线程请求日志先进入队列，减少同步写入对
+HTTP 请求路径的影响。
+"""
 
 import sys
 
@@ -16,6 +21,7 @@ LOG_FORMAT = (
 
 
 def setup_logging() -> None:
+    """业务功能: 初始化 stdout 和 appapi.log 两个日志 sink。"""
     settings.log_dir.mkdir(parents=True, exist_ok=True)
     logger.remove()
     logger.add(sys.stdout, format=LOG_FORMAT, level="INFO", enqueue=True)

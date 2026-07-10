@@ -1,4 +1,10 @@
-"""Canonical 1-minute parquet market data for the quant runtime."""
+"""Canonical 1-minute parquet market data for the quant runtime.
+
+业务功能: 读取 data/output/1min 下的标准 1 分钟 parquet 行情，供 VNPY 导入
+和回测使用。
+算法要点: 输入文件必须包含 canonical 字段集合；读取后按 symbol 和时间范围
+过滤，并转换成与 VNPY BarData 字段一一对应的 NormalizedBar。
+"""
 
 from dataclasses import dataclass
 from datetime import datetime
@@ -27,6 +33,8 @@ SYMBOL_PATTERN = re.compile(r"^[A-Za-z0-9_.-]+$")
 
 @dataclass(frozen=True)
 class NormalizedBar:
+    """业务功能: quant_runtime 内部统一使用的 1 分钟 K 线结构。"""
+
     exchange: str
     symbol: str
     datetime: datetime
@@ -40,10 +48,14 @@ class NormalizedBar:
 
 
 class MarketDataError(Exception):
-    """Raised when canonical parquet market data cannot be read."""
+    """业务功能: 表示 canonical parquet 行情不可读取或不符合规范。"""
 
 
 def _symbol_parquet_path(symbol: str, data_dir: Path) -> Path:
+    """业务功能: 将 symbol 映射到 1 分钟 parquet 文件。
+
+    算法要点: symbol 字符白名单加 resolve 父目录检查，防止路径穿越。
+    """
     if not SYMBOL_PATTERN.fullmatch(symbol):
         raise MarketDataError(
             "symbol may only contain letters, numbers, underscore, dash and dot",
@@ -59,6 +71,7 @@ def _symbol_parquet_path(symbol: str, data_dir: Path) -> Path:
 
 
 def _parse_datetime(value) -> datetime:
+    """算法要点: 兼容 pandas Timestamp、datetime 和 ISO/Z 字符串。"""
     timestamp = pd.to_datetime(value)
     if isinstance(timestamp, pd.Timestamp):
         return timestamp.to_pydatetime()
@@ -72,6 +85,7 @@ def _in_range(
     start_time: datetime | None,
     end_time: datetime | None,
 ) -> bool:
+    """算法要点: 比较时间范围前先对齐边界和 bar_time 的 tzinfo。"""
     def align_boundary(boundary: datetime | None) -> datetime | None:
         if boundary is None:
             return None
@@ -91,6 +105,7 @@ def _in_range(
 
 
 def list_symbols(data_dir: Path = settings.minute_data_dir) -> list[str]:
+    """业务功能: 列出当前 1 分钟行情目录下可回测的合约代码。"""
     if not data_dir.exists():
         return []
     return sorted(path.stem for path in data_dir.glob("*.parquet") if path.is_file())
@@ -102,6 +117,11 @@ def read_minute_bars(
     start_time: datetime | None = None,
     end_time: datetime | None = None,
 ) -> list[NormalizedBar]:
+    """业务功能: 读取一个合约在可选时间范围内的标准 1 分钟 K 线。
+
+    算法要点: 先校验 canonical 字段完整性，再逐行过滤 symbol 和时间范围；
+    字段类型在进入回测引擎前统一转换为 str/float/datetime。
+    """
     path = _symbol_parquet_path(symbol, data_dir)
     frame = pd.read_parquet(path)
     missing = sorted(REQUIRED_COLUMNS - set(frame.columns))

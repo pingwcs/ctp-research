@@ -1,0 +1,247 @@
+.chart-shell {
+  display: flex;
+  min-height: 520px;
+  width: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 16px;
+  background: var(--sky-panel);
+}
+
+.chart-title {
+  display: flex;
+  min-height: 62px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--sky-line);
+  padding: 0 18px;
+}
+
+.chart-title__main {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.chart-title__symbol {
+  overflow: hidden;
+  color: var(--sky-text);
+  font-family: JetBrains Mono, ui-monospace, SFMono-Regular, monospace;
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 22px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chart-title__meta,
+.chart-title__status {
+  color: var(--sky-muted);
+  font-size: 12px;
+  line-height: 18px;
+  white-space: nowrap;
+}
+
+.chart-title__actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.chart-icon-button {
+  color: var(--sky-muted);
+}
+
+.chart-stage {
+  position: relative;
+  min-height: 0;
+  flex: 1;
+}
+
+.chart-tooltip {
+  pointer-events: none;
+  position: absolute;
+  z-index: 8;
+  top: 0;
+  left: 0;
+  width: 190px;
+  border: 1px solid var(--sky-line);
+  border-radius: 12px;
+  background: var(--sky-tooltip-bg);
+  box-shadow: var(--sky-shadow);
+  color: var(--sky-text);
+  opacity: 0;
+  padding: 10px;
+  transition: opacity 120ms ease;
+  will-change: transform;
+}
+
+.chart-tooltip.is-up {
+  border-color: rgba(22, 184, 120, 0.72);
+}
+
+.chart-tooltip.is-down {
+  border-color: rgba(239, 68, 68, 0.72);
+}
+
+.chart-tooltip__time {
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--sky-line);
+  padding-bottom: 7px;
+  color: var(--sky-muted);
+  font-family: JetBrains Mono, ui-monospace, SFMono-Regular, monospace;
+  font-size: 11px;
+}
+
+.chart-tooltip__grid {
+  display: grid;
+  grid-template-columns: 24px 1fr;
+  row-gap: 5px;
+  column-gap: 8px;
+  font-size: 12px;
+}
+
+.chart-tooltip__grid span {
+  color: var(--sky-muted);
+}
+
+.chart-tooltip__grid strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  text-align: right;
+  font-family: JetBrains Mono, ui-monospace, SFMono-Regular, monospace;
+  font-weight: 700;
+}
+
+.chart-annotations {
+  pointer-events: none;
+  position: absolute;
+  z-index: 4;
+  inset: 0;
+}
+
+.chart-note {
+  position: absolute;
+  display: grid;
+  min-width: 82px;
+  gap: 2px;
+  border: 1px solid rgba(109, 119, 142, 0.18);
+  border-radius: 10px;
+  background: var(--sky-note-bg);
+  box-shadow: 0 8px 22px rgba(26, 36, 56, 0.08);
+  padding: 6px 8px;
+  transform: translate(-50%, -50%);
+}
+
+.chart-note strong {
+  color: var(--sky-text);
+  font-size: 11px;
+  line-height: 14px;
+}
+
+.chart-note small {
+  color: var(--sky-muted);
+  font-family: JetBrains Mono, ui-monospace, SFMono-Regular, monospace;
+  font-size: 10px;
+  line-height: 12px;
+}
+
+.chart-note--peak,
+.chart-note--resist {
+  border-color: rgba(111, 75, 148, 0.22);
+}
+
+.chart-note--support,
+.chart-note--low {
+  border-color: rgba(22, 184, 120, 0.2);
+}
+
+.current-price-badge {
+  pointer-events: none;
+  position: absolute;
+  z-index: 5;
+  right: 0;
+  border-radius: 999px 0 0 999px;
+  background: var(--sky-primary);
+  box-shadow: 0 8px 20px rgba(0, 99, 130, 0.18);
+  color: var(--sky-brand-on);
+  font-family: JetBrains Mono, ui-monospace, SFMono-Regular, monospace;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 18px;
+  padding: 5px 10px;
+  transform: translateY(-50%);
+}
+
+.chart-floating-actions {
+  position: absolute;
+  z-index: 6;
+  top: 72px;
+  right: 18px;
+  display: grid;
+  gap: 10px;
+}
+
+.chart-floating-actions .ant-btn {
+  border: 0;
+  background: var(--sky-purple);
+  box-shadow: 0 10px 22px rgba(111, 75, 148, 0.2);
+  color: var(--sky-chart-action-text);
+}
+
+.chart-floating-actions .ant-btn:hover {
+  background: #d6adff;
+  color: var(--sky-chart-action-text);
+}
+
+.chart-empty {
+  position: absolute;
+  z-index: 7;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: var(--sky-empty-bg);
+  color: var(--sky-muted);
+  font-size: 14px;
+}
+
+@media (max-width: 860px) {
+  .chart-shell {
+    min-height: 420px;
+  }
+
+  .chart-title {
+    min-height: 54px;
+    padding: 0 12px;
+  }
+
+  .chart-title__meta {
+    display: none;
+  }
+
+  .chart-note {
+    display: none;
+  }
+}
+
+@media (max-width: 560px) {
+  .chart-title__status {
+    display: none;
+  }
+
+  .chart-floating-actions {
+    top: 56px;
+    right: 12px;
+  }
+
+  .current-price-badge {
+    max-width: 118px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}

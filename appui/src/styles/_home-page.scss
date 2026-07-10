@@ -1,0 +1,40 @@
+.page--home {
+  display: flex;
+  min-height: calc(100vh - 72px);
+  align-items: center;
+  justify-content: center;
+}
+
+.home-shell {
+  width: 100%;
+  max-width: 980px;
+}
+
+.module-link {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+
+.module-card {
+  min-height: 150px;
+}
+
+.module-card__icon {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid var(--sky-module-icon-border);
+  border-radius: 12px;
+  background: var(--sky-module-icon-bg);
+  color: var(--sky-primary);
+  font-size: 22px;
+}
+
+@media (max-width: 860px) {
+  .page--home {
+    min-height: auto;
+  }
+}

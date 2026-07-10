@@ -41,7 +41,7 @@ export default function KLinePage() {
   const [draftSymbol, setDraftSymbol] = useState(market.symbol);
   const [activePeriod, setActivePeriod] = useState<Period>('5m');
 
-  const { loadSymbol, refresh, throttledRequestRange } = useKLineRangeRequests({
+  const { loadSymbol, refresh, requestNotice, throttledRequestRange } = useKLineRangeRequests({
     lastRequestedRange: market.lastRequestedRange,
     loading: market.loading,
     symbol: market.symbol,
@@ -110,6 +110,9 @@ export default function KLinePage() {
             ))}
           </div>
           {market.error ? <Alert message={market.error} showIcon type="error" /> : null}
+          {!market.error && requestNotice ? (
+            <Alert message={requestNotice} showIcon type="warning" />
+          ) : null}
         </div>
 
         <main className="chart-panel">

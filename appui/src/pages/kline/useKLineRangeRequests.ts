@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import throttle from 'lodash/throttle';
 
 import type { KLineRequest } from '../../api/market';
 import { CHART_RANGE_THROTTLE_MS, DEFAULT_KLINE_LIMIT } from '../../config/chart';
 import { fetchKLineData, setSymbol } from '../../store/marketSlice';
 import { useAppDispatch } from '../../store';
+import { getRangeRequestDecision } from './klineRangeRequestPolicy';
 
 interface RangeRequestSnapshot {
   symbol: string;
@@ -16,6 +17,8 @@ interface RangeRequestSnapshot {
 interface AbortableRequest extends Promise<unknown> {
   abort: () => void;
 }
+
+const FREQUENT_REQUEST_NOTICE = '请求数据过于频繁';
 
 function normalizeSymbol(symbol: string) {
   return symbol.trim().toUpperCase();
@@ -37,10 +40,13 @@ export function useKLineRangeRequests({
   const dispatch = useAppDispatch();
   const activeRequestRef = useRef<AbortableRequest | null>(null);
   const activeRequestKeyRef = useRef<string | null>(null);
+  const queuedRequestsRef = useRef<KLineRequest[]>([]);
   const scheduledAbortRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const initialSymbolRef = useRef(symbol);
-  const pendingRangeRef = useRef<string | null>(null);
-  const rangeRequestInFlightRef = useRef(false);
+  const dispatchFetchRef = useRef<
+    ((request: KLineRequest, shouldAbortActive?: boolean) => AbortableRequest | undefined) | null
+  >(null);
+  const [requestNotice, setRequestNotice] = useState<string | null>(null);
   const requestStateRef = useRef<RangeRequestSnapshot>({
     symbol,
     total,
@@ -49,8 +55,9 @@ export function useKLineRangeRequests({
   });
 
   const resetRangeTracking = useCallback(() => {
-    pendingRangeRef.current = null;
-    rangeRequestInFlightRef.current = false;
+    queuedRequestsRef.current = [];
+    activeRequestKeyRef.current = null;
+    setRequestNotice(null);
   }, []);
 
   const cancelScheduledAbort = useCallback(() => {
@@ -87,6 +94,8 @@ export function useKLineRangeRequests({
       }
 
       if (shouldAbortActive) {
+        queuedRequestsRef.current = [];
+        setRequestNotice(null);
         abortActiveRequest();
       }
 
@@ -97,12 +106,22 @@ export function useKLineRangeRequests({
         if (activeRequestRef.current === promise) {
           activeRequestRef.current = null;
           activeRequestKeyRef.current = null;
+          const nextRequest = queuedRequestsRef.current.shift();
+          if (nextRequest) {
+            void dispatchFetchRef.current?.(nextRequest);
+            return;
+          }
+          setRequestNotice(null);
         }
       });
       return promise;
     },
     [abortActiveRequest, cancelScheduledAbort, dispatch],
   );
+
+  useEffect(() => {
+    dispatchFetchRef.current = dispatchFetch;
+  }, [dispatchFetch]);
 
   useEffect(() => {
     const initialRequest = { symbol: initialSymbolRef.current, limit: DEFAULT_KLINE_LIMIT };
@@ -119,10 +138,10 @@ export function useKLineRangeRequests({
   }, [lastRequestedRange, loading, symbol, total]);
 
   useEffect(() => {
-    if (!loading) {
-      rangeRequestInFlightRef.current = false;
+    if (!loading && !activeRequestRef.current) {
+      activeRequestKeyRef.current = null;
     }
-  }, [lastRequestedRange, loading]);
+  }, [loading]);
 
   useEffect(() => () => scheduleAbortActiveRequest(), [scheduleAbortActiveRequest]);
 
@@ -146,20 +165,35 @@ export function useKLineRangeRequests({
   const requestRange = useCallback(
     (left: number, right: number) => {
       const state = requestStateRef.current;
-      if (!state.total || state.loading || rangeRequestInFlightRef.current) return;
+      const limit = right - left + 1;
+      const rangeKey = `${left}:${limit}`;
+      const request = {
+        symbol: state.symbol,
+        offset: left,
+        limit,
+      };
+      const decision = getRangeRequestDecision({
+        activeRequestKey: activeRequestKeyRef.current,
+        lastRequestedRange: state.lastRequestedRange,
+        rangeKey,
+        requestKey: getRequestKey(request),
+        total: state.total,
+      });
 
-      const requestKey = `${left}:${right - left + 1}`;
-      if (pendingRangeRef.current === requestKey || state.lastRequestedRange === requestKey) {
+      if (decision === 'skip') return;
+      if (decision === 'queue') {
+        const queuedRequestKey = getRequestKey(request);
+        const isAlreadyQueued = queuedRequestsRef.current.some(
+          (queuedRequest) => getRequestKey(queuedRequest) === queuedRequestKey,
+        );
+        if (!isAlreadyQueued) {
+          queuedRequestsRef.current.push(request);
+        }
+        setRequestNotice(FREQUENT_REQUEST_NOTICE);
         return;
       }
 
-      pendingRangeRef.current = requestKey;
-      rangeRequestInFlightRef.current = true;
-      void dispatchFetch({
-        symbol: state.symbol,
-        offset: left,
-        limit: right - left + 1,
-      });
+      void dispatchFetch(request);
     },
     [dispatchFetch],
   );
@@ -173,6 +207,7 @@ export function useKLineRangeRequests({
 
   return {
     loadSymbol,
+    requestNotice,
     refresh,
     throttledRequestRange,
   };

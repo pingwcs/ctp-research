@@ -31,6 +31,12 @@ var/
 *.egg
 .pytest_cache/
 
+# test files
+*.test.ts
+*.test.js
+*.test.py
+tests
+
 
 # npm 缓存文件
 node_modules/

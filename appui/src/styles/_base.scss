@@ -1,0 +1,46 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  background: var(--sky-surface);
+  color: var(--sky-text);
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+.page {
+  width: 100%;
+  max-width: 100%;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.page-stack,
+.full-width {
+  width: 100%;
+}
+
+.symbol-input {
+  font-family: JetBrains Mono, ui-monospace, SFMono-Regular, monospace;
+}
+
+@media (max-width: 860px) {
+  .page {
+    padding: 16px;
+  }
+}

@@ -1,0 +1,128 @@
+.page--kline {
+  min-height: calc(100vh - 72px);
+}
+
+.kline-workspace {
+  display: grid;
+  min-height: calc(100vh - 120px);
+  width: 100%;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 18px;
+}
+
+.market-tools,
+.chart-panel {
+  border: 1px solid var(--sky-line);
+  border-radius: 16px;
+  background: var(--sky-panel);
+  box-shadow: var(--sky-shadow-soft);
+}
+
+.period-strip {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 18px;
+}
+
+.kline-toolbar .period-strip {
+  margin-top: 0;
+}
+
+.period-chip {
+  min-height: 34px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: var(--sky-panel-soft);
+  color: var(--sky-muted);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 16px;
+}
+
+.period-chip:hover,
+.period-chip.is-active {
+  border-color: #6cc3eb;
+  background: var(--sky-action);
+  color: var(--sky-action-text);
+}
+
+.market-tools {
+  padding: 14px;
+}
+
+.kline-toolbar {
+  display: grid;
+  grid-template-columns: minmax(280px, 420px) minmax(360px, 1fr);
+  align-items: start;
+  gap: 12px;
+}
+
+.toolbar-card {
+  border-color: var(--sky-line);
+  box-shadow: var(--sky-shadow-soft);
+}
+
+.symbol-form-item {
+  min-width: 220px;
+}
+
+.symbol-search {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  gap: 8px;
+}
+
+.market-tools .ant-alert {
+  grid-column: 1 / -1;
+  margin-top: 12px;
+}
+
+.chart-panel {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.page-footer {
+  display: flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border-top: 1px solid var(--sky-line);
+  padding-top: 10px;
+}
+
+@media (max-width: 1180px) {
+  .kline-toolbar {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 860px) {
+  .page--kline {
+    min-height: auto;
+  }
+
+  .page-footer {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 560px) {
+  .period-strip {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .symbol-search {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+  }
+
+  .symbol-search > .ant-btn:last-child {
+    grid-column: 1 / -1;
+    justify-self: end;
+  }
+}

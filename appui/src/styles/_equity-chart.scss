@@ -1,0 +1,88 @@
+.equity-chart-shell {
+  position: relative;
+  width: 100%;
+  height: 260px;
+  overflow: hidden;
+  border: 1px solid var(--sky-line);
+  border-radius: 12px;
+  background: var(--sky-panel);
+}
+
+.equity-chart {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.equity-chart__guide {
+  stroke: var(--sky-equity-guide);
+  stroke-dasharray: 4 5;
+}
+
+.equity-chart__point {
+  fill: #38bdf8;
+  stroke: var(--sky-panel);
+  stroke-width: 2;
+}
+
+.equity-trade-marker {
+  pointer-events: none;
+  filter: drop-shadow(0 4px 7px rgba(26, 36, 56, 0.2));
+}
+
+.equity-trade-marker__shape {
+  stroke: var(--sky-panel);
+  stroke-linejoin: round;
+  stroke-width: 2;
+}
+
+.equity-chart__active-anchor {
+  position: absolute;
+  z-index: 2;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+}
+
+.equity-tooltip-popover {
+  pointer-events: none;
+  position: absolute;
+  z-index: 3;
+  min-width: 180px;
+  border: 1px solid var(--sky-line);
+  border-radius: 12px;
+  background: var(--sky-tooltip-bg);
+  box-shadow: var(--sky-shadow);
+  color: var(--sky-text);
+  padding: 10px;
+  transition: left 80ms ease, top 80ms ease, transform 80ms ease;
+}
+
+.equity-tooltip__time {
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--sky-line);
+  padding-bottom: 6px;
+  color: var(--sky-text);
+  font-family: JetBrains Mono, ui-monospace, SFMono-Regular, monospace;
+  font-size: 12px;
+}
+
+.equity-tooltip__grid {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  gap: 5px 10px;
+  font-size: 12px;
+}
+
+.equity-tooltip__grid span {
+  color: var(--sky-muted);
+}
+
+.equity-tooltip__grid strong {
+  text-align: right;
+  color: var(--sky-text);
+  font-family: JetBrains Mono, ui-monospace, SFMono-Regular, monospace;
+  font-weight: 700;
+}

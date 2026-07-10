@@ -1,0 +1,291 @@
+.app-layout {
+  min-height: 100vh;
+  background: var(--sky-surface);
+}
+
+.app-header {
+  position: sticky;
+  z-index: 20;
+  top: 0;
+  display: flex;
+  height: 72px;
+  align-items: center;
+  gap: 24px;
+  border-bottom: 1px solid var(--sky-line);
+  padding: 0 24px;
+  background: var(--sky-header-bg);
+  backdrop-filter: blur(18px);
+}
+
+.app-brand-block {
+  display: flex;
+  min-width: 224px;
+  align-items: center;
+  gap: 12px;
+}
+
+.app-brand-mark {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 12px;
+  background: var(--sky-primary);
+  box-shadow: var(--sky-brand-shadow);
+  color: var(--sky-brand-on);
+  font-size: 20px;
+}
+
+.app-brand.ant-typography {
+  margin: 0;
+  color: var(--sky-text);
+  font-size: 18px;
+  line-height: 22px;
+}
+
+.app-brand-subtitle.ant-typography {
+  display: block;
+  color: var(--sky-muted);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.app-top-nav {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-items: center;
+  gap: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.app-top-nav::-webkit-scrollbar {
+  display: none;
+}
+
+.app-top-nav__item {
+  min-height: 40px;
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--sky-muted);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+  padding: 0 16px;
+}
+
+.app-top-nav__item:hover:not(:disabled),
+.app-top-nav__item.is-active {
+  background: var(--sky-action);
+  color: var(--sky-action-text);
+}
+
+.app-top-nav__item:disabled {
+  cursor: default;
+  opacity: 0.58;
+}
+
+.app-header-tools {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.app-header-tools .ant-btn {
+  color: var(--sky-muted);
+}
+
+.app-header-tools .ant-btn:hover,
+.app-header-tools .ant-btn.is-on {
+  background: var(--sky-panel-soft);
+  color: var(--sky-primary);
+}
+
+.app-avatar {
+  background: var(--sky-primary);
+  color: var(--sky-brand-on);
+}
+
+.app-main-layout {
+  min-height: calc(100vh - 72px);
+  background: transparent;
+}
+
+.app-sider {
+  border-right: 1px solid var(--sky-line);
+  background: var(--sky-panel) !important;
+  padding: 18px 16px;
+}
+
+.terminal-card {
+  margin-bottom: 18px;
+  border: 1px solid var(--sky-line);
+  border-radius: 16px;
+  background: var(--sky-terminal-bg);
+  box-shadow: var(--sky-shadow-soft);
+  padding: 16px;
+}
+
+.terminal-card__eyebrow.ant-typography {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--sky-primary);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 16px;
+}
+
+.terminal-card__title.ant-typography {
+  margin: 0;
+  color: var(--sky-text);
+  font-size: 18px;
+  line-height: 24px;
+}
+
+.app-side-nav {
+  display: grid;
+  gap: 8px;
+}
+
+.app-side-nav__item {
+  display: flex;
+  min-height: 44px;
+  width: 100%;
+  align-items: center;
+  gap: 12px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--sky-muted);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+  padding: 0 12px;
+  text-align: left;
+}
+
+.app-side-nav__item:hover:not(:disabled),
+.app-side-nav__item.is-active {
+  background: var(--sky-panel-soft);
+  color: var(--sky-primary);
+}
+
+.app-side-nav__item:disabled {
+  cursor: default;
+  opacity: 0.58;
+}
+
+.app-side-nav__icon {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--sky-icon-bg);
+  color: inherit;
+  font-size: 16px;
+}
+
+.deposit-button {
+  margin-top: 20px;
+}
+
+.app-content {
+  min-width: 0;
+  width: 100%;
+  min-height: calc(100vh - 72px);
+}
+
+.route-loading {
+  min-height: 320px;
+}
+
+@media (max-width: 1180px) {
+  .app-header {
+    gap: 14px;
+  }
+
+  .app-brand-block {
+    min-width: 190px;
+  }
+}
+
+@media (max-width: 860px) {
+  .app-header {
+    position: static;
+    height: auto;
+    align-items: stretch;
+    flex-direction: column;
+    padding: 12px 16px;
+  }
+
+  .app-brand-block {
+    min-width: 0;
+  }
+
+  .app-header-tools {
+    position: absolute;
+    top: 14px;
+    right: 16px;
+  }
+
+  .app-top-nav {
+    padding-bottom: 2px;
+  }
+
+  .app-main-layout,
+  .app-main-layout.ant-layout-has-sider {
+    align-items: stretch;
+    min-height: auto;
+    flex-direction: column;
+  }
+
+  .app-main-layout.ant-layout-has-sider > .app-content {
+    flex: none;
+    width: 100% !important;
+  }
+
+  .app-sider {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    flex: none !important;
+    border-right: 0;
+    border-bottom: 1px solid var(--sky-line);
+    padding: 12px;
+  }
+
+  .terminal-card {
+    display: none;
+  }
+
+  .app-side-nav {
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(144px, 1fr);
+    overflow-x: auto;
+    padding-bottom: 2px;
+  }
+
+  .deposit-button {
+    margin-top: 12px;
+  }
+
+  .app-content {
+    min-height: auto;
+  }
+}
+
+@media (max-width: 560px) {
+  .app-header-tools .ant-btn:nth-child(2),
+  .app-header-tools .ant-btn:nth-child(3) {
+    display: none;
+  }
+}

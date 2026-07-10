@@ -1,0 +1,21 @@
+.ma-color-row {
+  min-height: 32px;
+}
+
+.color-swatch {
+  border: 2px solid var(--sky-field-border);
+}
+
+.color-swatch.is-active {
+  border-color: var(--sky-primary);
+}
+
+.control-panel {
+  width: min(680px, 82vw);
+}
+
+.settings-popover .ant-popover-inner {
+  border: 1px solid var(--sky-line);
+  border-radius: 16px;
+  box-shadow: var(--sky-shadow);
+}

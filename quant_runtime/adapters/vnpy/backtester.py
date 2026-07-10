@@ -3,9 +3,8 @@
 from datetime import date, datetime, time
 from importlib import import_module
 from pathlib import Path
-from typing import Any
 
-from quant_runtime.adapters.vnpy.database import import_symbol_bars
+from quant_runtime.adapters.vnpy.database import prepare_symbol_bars
 from quant_runtime.backtest_config import EngineConfig
 from quant_runtime.backtest_metrics import metric_value
 from quant_runtime.catalog import (
@@ -21,7 +20,6 @@ from quant_runtime.contracts import (
     EquityPoint,
     RunnerError,
 )
-from quant_runtime.market_data import MarketDataError, read_minute_bars
 from quant_runtime.settings import settings
 
 
@@ -29,16 +27,6 @@ def _epoch(value: date | datetime) -> int:
     if isinstance(value, date) and not isinstance(value, datetime):
         value = datetime.combine(value, time.min)
     return int(value.timestamp())
-
-
-def _bars_for_symbol(symbol: str, minute_data_dir: Path):
-    try:
-        bars = read_minute_bars(symbol, minute_data_dir)
-    except MarketDataError as exc:
-        raise RunnerError(404, str(exc)) from exc
-    if not bars:
-        raise RunnerError(404, "no bars found for the requested symbol")
-    return bars
 
 
 def _load_class(class_path: str):
@@ -63,7 +51,9 @@ def _build_equity_curve(
     points: list[EquityPoint] = []
     for index, row in daily_df.iterrows():
         timestamp = index.to_pydatetime() if hasattr(index, "to_pydatetime") else index
-        equity = float(row.get("balance", row.get("net_pnl", 0.0) + config.initial_cash))
+        equity = float(
+            row.get("balance", row.get("net_pnl", 0.0) + config.initial_cash)
+        )
         position = int(row.get("end_pos", 0) or 0)
         close_price = float(row.get("close_price", 0.0) or 0.0)
         position_value = position * close_price * config.contract_size
@@ -112,7 +102,9 @@ def run_backtest(
     selected_metrics = validate_request_ids(request.strategy, request.metrics)
     selected_strategy = strategy_config(request.strategy)
     if selected_strategy.engine != "vnpy":
-        raise RunnerError(400, f"unsupported strategy engine: {selected_strategy.engine}")
+        raise RunnerError(
+            400, f"unsupported strategy engine: {selected_strategy.engine}"
+        )
     strategy_class = _load_class(selected_strategy.class_path)
     config = engine_config()
     if (
@@ -122,8 +114,7 @@ def run_backtest(
     ):
         raise RunnerError(400, "start_time must be before end_time")
 
-    bars = _bars_for_symbol(request.symbol, minute_data_dir)
-    import_symbol_bars(
+    bars = prepare_symbol_bars(
         request.symbol,
         minute_data_dir,
         request.start_time,

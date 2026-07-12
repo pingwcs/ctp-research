@@ -24,8 +24,8 @@
 **Files:**
 - Modify: `tests/test_global_config.py`
 
-- [ ] Replace `AUTH_USERS_FILE` in the fixture with `AUTH_DATABASE_DSN` and assert `config.auth_database_dsn`.
-- [ ] Run `venv\\Scripts\\python.exe -m pytest tests/test_global_config.py -q` and expect two passing tests.
+- [x] Replace `AUTH_USERS_FILE` in the fixture with `AUTH_DATABASE_DSN` and assert `config.auth_database_dsn`.
+- [x] Run `venv\\Scripts\\python.exe -m pytest tests/test_global_config.py -q` and expect two passing tests.
 
 ### Task 2: Add pure trading primitives
 
@@ -34,10 +34,10 @@
 - Create: `trade_runtime/domain/orders.py`
 - Create: `tests/trade_runtime/test_orders.py`
 
-- [ ] Write failing tests for valid order transitions, terminal-state protection, and `CLOSE_AUTO` intent validation.
-- [ ] Run the focused test and observe import failure.
-- [ ] Implement enums, immutable dataclasses, and an explicit transition function with no CTP imports.
-- [ ] Run focused tests and then the full test suite.
+- [x] Write failing tests for valid order transitions, terminal-state protection, and `CLOSE_AUTO` intent validation.
+- [x] Run the focused test and observe import failure.
+- [x] Implement enums, immutable dataclasses, and an explicit transition function with no CTP imports.
+- [x] Run focused tests and then the full test suite.
 
 ### Task 3: Add deterministic idempotency and risk decisions
 
@@ -47,9 +47,9 @@
 - Create: `tests/trade_runtime/test_idempotency.py`
 - Create: `tests/trade_runtime/test_risk.py`
 
-- [ ] Write failing tests for payload hashing, same-key conflict detection, stale market-data opening rejection, and closing allowed while opening is blocked.
-- [ ] Implement only the pure domain functions needed by the tests.
-- [ ] Run focused and full Python tests.
+- [x] Write failing tests for payload hashing, same-key conflict detection, stale market-data opening rejection, and closing allowed while opening is blocked.
+- [x] Implement only the pure domain functions needed by the tests.
+- [x] Run focused and full Python tests.
 
 ### Task 4: Add application ports and a serial command handler
 
@@ -58,9 +58,9 @@
 - Create: `trade_runtime/application/ports.py`
 - Create: `tests/trade_runtime/test_commands.py`
 
-- [ ] Write failing tests against fake repositories and a fake gateway for risk rejection, successful submit dispatch, and no retry after uncertain submit.
-- [ ] Implement the handler with injected clock, repository, and gateway ports.
-- [ ] Run focused and full Python tests.
+- [x] Write failing tests against fake repositories and a fake gateway for risk rejection, successful submit dispatch, and no retry after uncertain submit.
+- [x] Implement the handler with injected clock, repository, and gateway ports.
+- [x] Run focused and full Python tests.
 
 ### Task 5: Add appapi contracts and transactional persistence migration
 

@@ -22,6 +22,7 @@ from loguru import logger
 from appapi.api.auth import router as auth_router
 from appapi.api.backtest import router as backtest_router
 from appapi.api.market import router as market_router
+from appapi.api.trading import router as trading_router
 from appapi.core.config import settings
 from appapi.core.logging import setup_logging
 
@@ -52,6 +53,11 @@ app.include_router(
     auth_router,
     prefix=settings.auth_prefix,
     tags=["auth"],
+)
+app.include_router(
+    trading_router,
+    prefix=settings.trading_prefix,
+    tags=["trading"],
 )
 
 

@@ -20,6 +20,7 @@ class Settings:
     market_prefix: str = "/api/market"
     backtest_prefix: str = "/api/backtest"
     auth_prefix: str = "/api/auth"
+    trading_prefix: str = "/api/trading"
     data_dir: Path = project_root
     log_dir: Path = project_root
     auth_database_dsn: str = ""

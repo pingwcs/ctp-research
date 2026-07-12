@@ -69,13 +69,13 @@
 - Create: `appapi/services/trading/commands.py`
 - Create: `appapi/api/trading.py`
 - Modify: `appapi/main.py`
-- Create: `alembic/versions/<revision>_live_trading_foundation.py`
+- Create: `appapi/migrations/0001_live_trading_foundation.sql`
 - Create: `tests/appapi/services/test_trading_commands.py`
 
-- [ ] Write failing service tests for tenant-scoped idempotent order command creation.
-- [ ] Introduce the schema for tenants, accounts, commands, order intents, broker orders, event journal, outbox, and inbox.
-- [ ] Implement command persistence and expose only `POST /api/trading/accounts/{account_id}/orders` initially.
-- [ ] Run service tests, API tests, and the complete Python suite.
+- [x] Write failing service tests for tenant-scoped idempotent order command creation.
+- [x] Introduce a versioned PostgreSQL schema for tenants, accounts, commands, order intents, broker orders, event journal, outbox, and inbox.
+- [x] Implement command persistence and expose only `POST /api/trading/accounts/{account_id}/orders` initially.
+- [x] Run service tests, API tests, and the complete Python suite.
 
 ### Task 6: Add supervisor/runtime and Redis adapter seams
 

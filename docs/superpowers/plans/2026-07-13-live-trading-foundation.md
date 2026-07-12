@@ -98,7 +98,7 @@
 - Create: `scripts/verify_ctp_runtime.py`
 - Create: `tests/trade_runtime/test_vnpy_ctp_gateway.py`
 
-- [ ] Write fake-gateway contract tests before importing vn.py.
+- [x] Write fake-gateway contract tests before importing vn.py.
 - [ ] Build a pinned image and execute import/`ldd` checks.
 - [ ] Run the credentialed SimNow harness only through an explicit protected environment.
 - [ ] Record tested image digest and dependency versions in release metadata.

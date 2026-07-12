@@ -85,10 +85,10 @@
 - Create: `tests/trade_runtime/test_redis_streams.py`
 - Create: `tests/trade_supervisor/test_leases.py`
 
-- [ ] Write failing tests for event de-duplication and fencing-token rejection.
-- [ ] Implement provider-neutral interfaces plus Redis and PostgreSQL adapter implementations.
-- [ ] Add Docker Compose development services and container health contracts without installing CTP.
-- [ ] Run focused tests and the complete suite.
+- [x] Write failing tests for event de-duplication and fencing-token rejection.
+- [x] Implement provider-neutral interfaces plus Redis and PostgreSQL adapter implementations.
+- [x] Add Docker Compose development services and container health contracts without installing CTP.
+- [x] Run focused tests and the complete suite.
 
 ### Task 7: Add CTP image proof of compatibility and SimNow acceptance harness
 

@@ -6,6 +6,8 @@ appapi 的统一 HTTP 入口。
 把业务处理委托给 api/services 模块。
 """
 
+from collections.abc import Mapping
+import os
 from pathlib import Path
 import sys
 
@@ -28,6 +30,12 @@ from appapi.core.logging import setup_logging
 
 
 setup_logging()
+
+
+def resolve_listen_host(environ: Mapping[str, str] | None = None) -> str:
+    env = os.environ if environ is None else environ
+    return env.get("APPAPI_HOST") or "127.0.0.1"
+
 
 app = FastAPI(title=settings.app_name)
 
@@ -80,4 +88,4 @@ def on_startup() -> None:
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run("appapi.main:app", host="127.0.0.1", port=8000, reload=False)
+    uvicorn.run("appapi.main:app", host=resolve_listen_host(), port=8000, reload=False)

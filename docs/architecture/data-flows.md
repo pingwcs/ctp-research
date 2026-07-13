@@ -48,4 +48,3 @@ The repository implements the durable acceptance and core execution contracts, b
 6. The CTP adapter maps accepted, rejected, and unknown submit outcomes. Unknown submissions are not blindly retried; later CTP callbacks or broker reconciliation must determine the final state.
 
 Steps 1–3 and the domain/adapter contracts are present. Continuous outbox dispatch, container lifecycle supervision, live CTP callbacks, and operational reconciliation require deployment integration.
-

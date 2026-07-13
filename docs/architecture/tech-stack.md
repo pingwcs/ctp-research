@@ -51,4 +51,3 @@ The live-trading foundation uses:
 - `scripts/generate_openapi.py` regenerates the checked-in OpenAPI document and TypeScript API types.
 - `scripts/verify_ctp_runtime.py` performs offline runtime inspection and can prepare a protected SimNow connectivity probe.
 - Docker and Docker Compose support the infrastructure and runtime-image workflows.
-

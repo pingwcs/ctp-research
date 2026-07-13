@@ -81,4 +81,3 @@ pnpm build
 - Add tests at the owning boundary and run the full suite before integration.
 - Treat live-trading changes as safety-sensitive: preserve idempotency, fencing, risk checks, auditability, and the no-blind-retry rule for unknown submissions.
 - Update these architecture documents whenever a subsystem responsibility, dependency, persisted store, or primary flow changes.
-

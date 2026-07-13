@@ -36,4 +36,3 @@ CTP credentials and native dependencies are environment-specific. Never store re
 - [Component boundaries](components.md)
 - [Data flows](data-flows.md)
 - [Development and maintenance](development.md)
-

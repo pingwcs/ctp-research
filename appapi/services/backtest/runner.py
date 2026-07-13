@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 from datetime import datetime
+from contextlib import contextmanager
 import json
 import subprocess
-from threading import Lock
+from threading import BoundedSemaphore, Lock
 from time import monotonic
 from typing import Any, Callable, Protocol
 
@@ -22,6 +23,27 @@ class RuntimeAdapter(Protocol):
         payload: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Invoke a quant runtime command."""
+
+
+class BacktestConcurrencyGate:
+    """Fail-fast capacity gate for locally executed backtests."""
+
+    def __init__(self, max_active_jobs: int = 1) -> None:
+        if max_active_jobs <= 0:
+            raise ValueError("max_active_jobs must be positive")
+        self._capacity = BoundedSemaphore(max_active_jobs)
+
+    @contextmanager
+    def acquire(self):
+        if not self._capacity.acquire(blocking=False):
+            raise RuntimeError("backtest capacity exhausted")
+        try:
+            yield
+        finally:
+            self._capacity.release()
+
+
+_backtest_concurrency_gate = BacktestConcurrencyGate()
 
 
 class QuantRuntimeRunner:
@@ -58,10 +80,10 @@ class QuantRuntimeRunner:
         return [str(symbol) for symbol in payload.get("symbols", [])]
 
     def run(self, payload: dict[str, Any]) -> dict[str, Any]:
-        return self._sync_adapter.invoke("run", payload)
+        return self._invoke_backtest("run", payload, self._sync_adapter)
 
     def submit(self, payload: dict[str, Any]) -> dict[str, Any]:
-        return self._invoke_worker("submit", payload)
+        return self._invoke_backtest("submit", payload, self._worker_adapter)
 
     def status(self, job_id: str) -> dict[str, Any]:
         return self._invoke_worker("status", {"job_id": job_id})
@@ -75,6 +97,38 @@ class QuantRuntimeRunner:
 
     def _invoke_worker(self, command: str, payload: dict[str, Any]) -> dict[str, Any]:
         output = self._worker_adapter.invoke(command, payload)
+        error = output.get("error")
+        if error:
+            raise HTTPException(
+                status_code=int(error.get("status_code") or 502)
+                if isinstance(error, dict)
+                else 502,
+                detail=str(
+                    error.get("detail")
+                    if isinstance(error, dict)
+                    else error
+                    or "quant runtime worker failed",
+                ),
+            )
+        return output
+
+    def _invoke_backtest(
+        self,
+        command: str,
+        payload: dict[str, Any],
+        adapter: RuntimeAdapter,
+    ) -> dict[str, Any]:
+        try:
+            with _backtest_concurrency_gate.acquire():
+                output = adapter.invoke(command, payload)
+        except RuntimeError as exc:
+            if str(exc) != "backtest capacity exhausted":
+                raise
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=str(exc),
+            ) from exc
+
         error = output.get("error")
         if error:
             raise HTTPException(

@@ -6,10 +6,11 @@ parquet 行情。
 services.market_data 处理。
 """
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query, status
 
 from appapi.schemas.market import KLineResponse
 from appapi.services.kline_reader import get_kline_reader
+from appapi.services.market_query import normalize_limit
 
 
 router = APIRouter()
@@ -19,7 +20,14 @@ router = APIRouter()
 def get_kline(
     symbol: str = Query(..., min_length=1, examples=["RB0909"]),
     offset: int | None = Query(None, ge=0),
-    limit: int = Query(2000, ge=1, le=2000),
+    limit: int = Query(2000),
 ) -> KLineResponse:
     """业务功能: 返回单个合约的一页标准 OHLCV K 线数据。"""
-    return get_kline_reader().load(symbol=symbol, offset=offset, limit=limit)
+    try:
+        safe_limit = normalize_limit(limit)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=str(exc),
+        ) from exc
+    return get_kline_reader().load(symbol=symbol, offset=offset, limit=safe_limit)

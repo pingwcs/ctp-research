@@ -50,3 +50,18 @@ def test_main_returns_structured_error_when_vnpy_ctp_is_not_installed(
 
     assert main([]) == 2
     assert '"error": "vnpy_ctp"' in capsys.readouterr().out
+
+
+def test_main_returns_structured_error_when_online_credentials_are_absent(
+    monkeypatch,
+    capsys,
+):
+    monkeypatch.setattr(
+        "scripts.verify_ctp_runtime.offline_report",
+        lambda: {"missing_shared_libraries": []},
+    )
+    for name in REQUIRED_ONLINE_ENV:
+        monkeypatch.delenv(name, raising=False)
+
+    assert main(["--online"]) == 3
+    assert '"error": "online SimNow verification requires:' in capsys.readouterr().out

@@ -34,7 +34,11 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps({"error": str(exc)}, ensure_ascii=False, sort_keys=True))
         return 2
     if args.online:
-        report["online"] = online_environment_report()
+        try:
+            report["online"] = online_environment_report()
+        except RuntimeError as exc:
+            print(json.dumps({"error": str(exc)}, ensure_ascii=False, sort_keys=True))
+            return 3
     if args.image_digest:
         report["image_digest"] = args.image_digest
     print(json.dumps(report, ensure_ascii=False, sort_keys=True))

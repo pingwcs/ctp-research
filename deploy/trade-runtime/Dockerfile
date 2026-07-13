@@ -16,15 +16,15 @@ RUN apt-get update \
         python3-pip \
     && rm -rf /var/lib/apt/lists/*
 
-RUN python3 -m pip install --break-system-packages --upgrade \
-        pip==25.1.1 \
+RUN python3 -m pip install --break-system-packages \
         meson==1.8.3 \
         meson-python==0.18.0 \
         pybind11==2.13.6
 
 COPY deploy/trade-runtime/requirements.txt /tmp/requirements.txt
-RUN python3 -m pip install --break-system-packages --no-binary=vnpy_ctp \
-        -r /tmp/requirements.txt
+RUN python3 -m pip install --break-system-packages --no-deps \
+        --no-binary=vnpy_ctp -r /tmp/requirements.txt \
+    && python3 -c "from vnpy_ctp import CtpGateway; print(CtpGateway.__name__)"
 
 COPY trade_runtime /opt/ctp_research/trade_runtime
 COPY scripts/verify_ctp_runtime.py /opt/ctp_research/scripts/verify_ctp_runtime.py

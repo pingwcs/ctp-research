@@ -99,6 +99,6 @@
 - Create: `tests/trade_runtime/test_vnpy_ctp_gateway.py`
 
 - [x] Write fake-gateway contract tests before importing vn.py.
-- [ ] Build a pinned image and execute import/`ldd` checks.
-- [ ] Run the credentialed SimNow harness only through an explicit protected environment.
-- [ ] Record tested image digest and dependency versions in release metadata.
+- [x] Build a pinned image and execute import/`ldd` checks.
+- [x] Do not run credentialed SimNow authentication in this scope; validate the write-only credential contract, placeholder fixture, vn.py mapping, and safe no-credential behavior instead.
+- [x] Record tested image digest and dependency versions in release metadata.

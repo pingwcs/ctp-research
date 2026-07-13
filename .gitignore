@@ -2,7 +2,7 @@
 .agents/
 data/
 venv/
-docs/
+agent-docs/
 /quant_runtime/runtime
 /.codex-bug-assets
 

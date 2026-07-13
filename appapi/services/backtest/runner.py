@@ -100,6 +100,7 @@ class BacktestJobCapacityRegistry:
 
 _backtest_job_capacity = BacktestJobCapacityRegistry(_backtest_concurrency_gate)
 _TERMINAL_JOB_STATUSES = {"succeeded", "failed"}
+_JOB_STATUSES = {"queued", "running", *_TERMINAL_JOB_STATUSES}
 
 
 class QuantRuntimeRunner:
@@ -147,8 +148,8 @@ class QuantRuntimeRunner:
         try:
             output = self._invoke_worker("submit", payload)
             job_id = output.get("job_id")
-            job_status = output.get("status")
-            if not isinstance(job_id, str) or not isinstance(job_status, str):
+            job_status = self._validated_job_status(output)
+            if not isinstance(job_id, str):
                 raise HTTPException(
                     status_code=status.HTTP_502_BAD_GATEWAY,
                     detail="quant runtime worker returned an invalid job response",
@@ -164,13 +165,25 @@ class QuantRuntimeRunner:
         return output
 
     def status(self, job_id: str) -> dict[str, Any]:
-        output = self._invoke_worker("status", {"job_id": job_id})
-        self._release_terminal_job(job_id, output)
+        try:
+            output = self._invoke_worker("status", {"job_id": job_id})
+            job_status = self._validated_job_status(output)
+        except Exception:
+            _backtest_job_capacity.release_job(job_id)
+            raise
+        if job_status in _TERMINAL_JOB_STATUSES:
+            _backtest_job_capacity.release_job(job_id)
         return output
 
     def result(self, job_id: str) -> dict[str, Any]:
-        output = self._invoke_worker("result", {"job_id": job_id})
-        self._release_terminal_job(job_id, output)
+        try:
+            output = self._invoke_worker("result", {"job_id": job_id})
+            job_status = self._validated_job_status(output)
+        except Exception:
+            _backtest_job_capacity.release_job(job_id)
+            raise
+        if job_status in _TERMINAL_JOB_STATUSES:
+            _backtest_job_capacity.release_job(job_id)
         return output
 
     def clear_metadata_cache(self) -> None:
@@ -178,20 +191,14 @@ class QuantRuntimeRunner:
         self._cached_metadata_at = 0.0
 
     def _invoke_worker(self, command: str, payload: dict[str, Any]) -> dict[str, Any]:
-        try:
-            output = self._worker_adapter.invoke(command, payload)
-        except Exception:
-            _backtest_job_capacity.release_all()
-            raise
+        output = self._worker_adapter.invoke(command, payload)
         if not isinstance(output, dict):
-            _backtest_job_capacity.release_all()
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
                 detail="quant runtime worker returned a non-object JSON payload",
             )
         error = output.get("error")
         if error:
-            _backtest_job_capacity.release_all()
             raise HTTPException(
                 status_code=int(error.get("status_code") or 502)
                 if isinstance(error, dict)
@@ -206,9 +213,14 @@ class QuantRuntimeRunner:
         return output
 
     @staticmethod
-    def _release_terminal_job(job_id: str, output: dict[str, Any]) -> None:
-        if output.get("status") in _TERMINAL_JOB_STATUSES:
-            _backtest_job_capacity.release_job(job_id)
+    def _validated_job_status(output: dict[str, Any]) -> str:
+        job_status = output.get("status")
+        if job_status not in _JOB_STATUSES:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="quant runtime worker returned an invalid job response",
+            )
+        return job_status
 
     def _invoke_backtest(
         self,

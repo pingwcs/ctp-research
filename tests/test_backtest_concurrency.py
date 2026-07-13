@@ -78,6 +78,104 @@ def test_submit_holds_capacity_until_worker_reports_terminal_status() -> None:
     runner_instance.status("job-2")
 
 
+@pytest.mark.parametrize("command", ["status", "result"])
+def test_unrelated_worker_error_does_not_release_an_active_job(
+    monkeypatch, command: str
+) -> None:
+    gate = BacktestConcurrencyGate()
+    monkeypatch.setattr(runner, "_backtest_concurrency_gate", gate)
+    monkeypatch.setattr(
+        runner,
+        "_backtest_job_capacity",
+        runner.BacktestJobCapacityRegistry(gate),
+    )
+
+    class WorkerAdapter:
+        def invoke(self, invoked_command, payload):
+            if invoked_command == "submit":
+                return {"job_id": "job-1", "status": "queued", "error": None}
+            if invoked_command == command:
+                assert payload == {"job_id": "unrelated-job"}
+                return {"error": {"status_code": 404, "detail": "job not found"}}
+            raise AssertionError(f"unexpected command: {invoked_command}")
+
+    runner_instance = QuantRuntimeRunner(worker_adapter=WorkerAdapter())
+    assert runner_instance.submit({"symbol": "RB0909"})["job_id"] == "job-1"
+
+    with pytest.raises(HTTPException) as exc_info:
+        getattr(runner_instance, command)("unrelated-job")
+
+    assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
+    with pytest.raises(HTTPException) as exc_info:
+        runner_instance.submit({"symbol": "RB0910"})
+
+    assert exc_info.value.status_code == status.HTTP_429_TOO_MANY_REQUESTS
+
+
+def test_malformed_submit_status_releases_its_own_reservation(monkeypatch) -> None:
+    gate = BacktestConcurrencyGate()
+    monkeypatch.setattr(runner, "_backtest_concurrency_gate", gate)
+    monkeypatch.setattr(
+        runner,
+        "_backtest_job_capacity",
+        runner.BacktestJobCapacityRegistry(gate),
+    )
+
+    class WorkerAdapter:
+        def __init__(self) -> None:
+            self.submissions = 0
+
+        def invoke(self, command, payload):
+            assert command == "submit"
+            self.submissions += 1
+            if self.submissions == 1:
+                return {"job_id": "job-1", "status": "unknown", "error": None}
+            return {"job_id": "job-2", "status": "succeeded", "error": None}
+
+    runner_instance = QuantRuntimeRunner(worker_adapter=WorkerAdapter())
+
+    with pytest.raises(HTTPException) as exc_info:
+        runner_instance.submit({"symbol": "RB0909"})
+
+    assert exc_info.value.status_code == status.HTTP_502_BAD_GATEWAY
+    assert runner_instance.submit({"symbol": "RB0910"})["job_id"] == "job-2"
+
+
+def test_malformed_status_releases_only_its_own_reservation(monkeypatch) -> None:
+    gate = BacktestConcurrencyGate()
+    monkeypatch.setattr(runner, "_backtest_concurrency_gate", gate)
+    monkeypatch.setattr(
+        runner,
+        "_backtest_job_capacity",
+        runner.BacktestJobCapacityRegistry(gate),
+    )
+
+    class WorkerAdapter:
+        def __init__(self) -> None:
+            self.submissions = 0
+
+        def invoke(self, command, payload):
+            if command == "submit":
+                self.submissions += 1
+                return {
+                    "job_id": f"job-{self.submissions}",
+                    "status": "queued",
+                    "error": None,
+                }
+            if command == "status":
+                return {"job_id": "job-1", "status": "unknown", "error": None}
+            raise AssertionError(f"unexpected command: {command}")
+
+    runner_instance = QuantRuntimeRunner(worker_adapter=WorkerAdapter())
+    runner_instance.submit({"symbol": "RB0909"})
+
+    with pytest.raises(HTTPException) as exc_info:
+        runner_instance.status("job-1")
+
+    assert exc_info.value.status_code == status.HTTP_502_BAD_GATEWAY
+    assert runner_instance.submit({"symbol": "RB0910"})["job_id"] == "job-2"
+
+
 def test_run_endpoint_returns_429_when_backtest_capacity_is_exhausted(monkeypatch) -> None:
     def exhausted(_request):
         raise HTTPException(

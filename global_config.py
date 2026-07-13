@@ -100,8 +100,16 @@ def load_environment_config(
 
     return EnvironmentConfig(
         project_root=project_root,
-        market_data_dir=platform_config.market_data_root,
-        market_log_dir=platform_config.state_root,
+        market_data_dir=(
+            _resolve_path(project_root, env[ENV_MARKET_DATA_DIR])
+            if env.get(ENV_MARKET_DATA_DIR)
+            else platform_config.market_data_root
+        ),
+        market_log_dir=(
+            _resolve_path(project_root, env[ENV_MARKET_LOG_DIR])
+            if env.get(ENV_MARKET_LOG_DIR)
+            else platform_config.state_root
+        ),
         market_cors_origins=cors_origins,
         auth_database_dsn=platform_config.postgres_dsn,
         auth_token_secret=env.get(

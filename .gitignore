@@ -33,6 +33,7 @@ var/
 
 # test files
 tests/
+.tmp/
 
 
 

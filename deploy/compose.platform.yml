@@ -21,6 +21,10 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    environment:
+      MARKET_DATA_DIR: /workspace/data/output
+    volumes:
+      - ${PLATFORM_DATA_DIR}/output:/workspace/data/output:ro
     ports:
       - "127.0.0.1:8000:8000"
 
@@ -32,6 +36,14 @@ services:
       - appapi
     ports:
       - "127.0.0.1:5173:8080"
+
+  pipeline:
+    profiles: ["pipeline"]
+    build:
+      context: ..
+      dockerfile: deploy/pipeline/Dockerfile
+    volumes:
+      - ${PLATFORM_DATA_DIR}:/data
 
 volumes:
   platform_postgres_data:

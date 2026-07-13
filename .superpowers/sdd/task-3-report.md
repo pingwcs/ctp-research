@@ -173,3 +173,53 @@ Final results: targeted concurrency suite `8 passed`; Task 3 focused suite
 Results: targeted concurrency suite `15 passed`; Task 3 focused suite
 `19 passed`; import smoke printed `appapi.main import ok`; full suite
 `29 passed`.
+
+## Final P1 reservation lifecycle fix
+
+### Root cause
+
+`status()` and `result()` released the reservation associated with the
+requested job whenever the worker request raised or returned an invalid
+status. A 5xx/error response does not establish that an already accepted
+queued/running job has stopped, so this could admit another async job or a
+synchronous run while the original worker job still consumed the sole slot.
+`QuantRuntimeRunner.shutdown()` also released reservations before asking the
+worker adapter to stop, creating a window where new work could enter before
+the original worker was terminated.
+
+### Fix
+
+- `status()` and `result()` now retain their reservation for worker errors,
+  malformed responses, and invalid statuses. They release only after response
+  ID validation and a matching `succeeded` or `failed` status.
+- Shutdown now asks the owned worker adapter to stop before releasing only
+  that runner's owner-scoped reservations. `WorkerProcessTransport.shutdown()`
+  terminates and waits for its process before reporting shutdown complete.
+- Preserved response-ID validation and the existing opaque owner isolation in
+  the reservation registry.
+
+### Regression coverage and fresh verification
+
+- Parameterized status/result worker-error regression: submit `job-1`, poll
+  it with a worker 503, then verify both another submit and synchronous run
+  receive HTTP 429.
+- Shutdown ordering regression: while the owned worker shutdown callback is
+  executing, another runner still receives HTTP 429; after it completes, that
+  runner can submit. A transport regression asserts the process event order is
+  `terminate`, then `wait`.
+- Updated the malformed-status regression so it asserts capacity is retained,
+  rather than freed by an untrusted non-terminal response.
+
+The new worker-error and shutdown-order tests failed before the production
+change: a second operation was accepted in each case. Fresh verification:
+
+```powershell
+& .\venv\Scripts\python.exe -m pytest tests\test_backtest_concurrency.py -q
+& .\venv\Scripts\python.exe -m pytest tests\test_market_query.py tests\test_backtest_concurrency.py -q
+& .\venv\Scripts\python.exe -c "import appapi.main; print('appapi.main import ok')"
+& .\venv\Scripts\python.exe -m pytest -q
+```
+
+Results: targeted concurrency suite `19 passed`; Task 3 focused suite
+`23 passed`; import smoke printed `appapi.main import ok`; full suite
+`33 passed`.

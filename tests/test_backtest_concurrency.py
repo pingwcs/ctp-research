@@ -4,7 +4,11 @@ from fastapi import HTTPException, status
 from appapi.api import backtest as backtest_api
 from appapi.schemas.backtest import BacktestRunRequest
 from appapi.services.backtest import runner
-from appapi.services.backtest.runner import BacktestConcurrencyGate, QuantRuntimeRunner
+from appapi.services.backtest.runner import (
+    BacktestConcurrencyGate,
+    QuantRuntimeRunner,
+    WorkerProcessTransport,
+)
 
 
 def test_backtest_gate_rejects_a_second_active_job() -> None:
@@ -79,6 +83,105 @@ def test_submit_holds_capacity_until_worker_reports_terminal_status() -> None:
 
 
 @pytest.mark.parametrize("command", ["status", "result"])
+def test_worker_error_for_active_job_keeps_capacity_reserved(monkeypatch, command: str) -> None:
+    gate = BacktestConcurrencyGate()
+    monkeypatch.setattr(runner, "_backtest_concurrency_gate", gate)
+    monkeypatch.setattr(
+        runner,
+        "_backtest_job_capacity",
+        runner.BacktestJobCapacityRegistry(gate),
+    )
+
+    class WorkerAdapter:
+        def invoke(self, invoked_command, payload):
+            if invoked_command == "submit":
+                return {"job_id": "job-1", "status": "queued", "error": None}
+            if invoked_command == command:
+                assert payload == {"job_id": "job-1"}
+                return {"error": {"status_code": 503, "detail": "worker unavailable"}}
+            raise AssertionError(f"unexpected command: {invoked_command}")
+
+    class SyncAdapter:
+        def invoke(self, command, payload):
+            pytest.fail("sync run must not start while the worker job is unresolved")
+
+    runner_instance = QuantRuntimeRunner(
+        sync_adapter=SyncAdapter(),
+        worker_adapter=WorkerAdapter(),
+    )
+    assert runner_instance.submit({"symbol": "RB0909"})["job_id"] == "job-1"
+
+    with pytest.raises(HTTPException) as exc_info:
+        getattr(runner_instance, command)("job-1")
+
+    assert exc_info.value.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+    for operation in (
+        lambda: runner_instance.submit({"symbol": "RB0910"}),
+        lambda: runner_instance.run({"symbol": "RB0910"}),
+    ):
+        with pytest.raises(HTTPException) as exc_info:
+            operation()
+        assert exc_info.value.status_code == status.HTTP_429_TOO_MANY_REQUESTS
+
+
+def test_shutdown_stops_worker_before_releasing_its_reservations(monkeypatch) -> None:
+    gate = BacktestConcurrencyGate()
+    monkeypatch.setattr(runner, "_backtest_concurrency_gate", gate)
+    monkeypatch.setattr(
+        runner,
+        "_backtest_job_capacity",
+        runner.BacktestJobCapacityRegistry(gate),
+    )
+
+    class WorkerAdapter:
+        def __init__(self) -> None:
+            self.shutdown_called = False
+
+        def invoke(self, command, payload):
+            assert command == "submit"
+            return {"job_id": "job-1", "status": "queued", "error": None}
+
+        def shutdown(self):
+            self.shutdown_called = True
+            with pytest.raises(HTTPException) as exc_info:
+                other_runner.submit({"symbol": "RB0910"})
+            assert exc_info.value.status_code == status.HTTP_429_TOO_MANY_REQUESTS
+
+    worker = WorkerAdapter()
+    active_runner = QuantRuntimeRunner(worker_adapter=worker)
+    other_runner = QuantRuntimeRunner(worker_adapter=WorkerAdapter())
+    active_runner.submit({"symbol": "RB0909"})
+
+    active_runner.shutdown()
+
+    assert worker.shutdown_called
+    assert other_runner.submit({"symbol": "RB0910"})["job_id"] == "job-1"
+    other_runner.shutdown()
+
+
+def test_worker_shutdown_terminates_and_waits_for_its_process() -> None:
+    events: list[str] = []
+
+    class Process:
+        def poll(self):
+            return None
+
+        def terminate(self):
+            events.append("terminate")
+
+        def wait(self):
+            events.append("wait")
+
+    transport = WorkerProcessTransport()
+    transport._process = Process()
+
+    transport.shutdown()
+
+    assert events == ["terminate", "wait"]
+    assert transport._process is None
+
+
+@pytest.mark.parametrize("command", ["status", "result"])
 def test_unrelated_worker_error_does_not_release_an_active_job(
     monkeypatch, command: str
 ) -> None:
@@ -141,7 +244,7 @@ def test_malformed_submit_status_releases_its_own_reservation(monkeypatch) -> No
     assert runner_instance.submit({"symbol": "RB0910"})["job_id"] == "job-2"
 
 
-def test_malformed_status_releases_only_its_own_reservation(monkeypatch) -> None:
+def test_malformed_status_keeps_its_active_reservation(monkeypatch) -> None:
     gate = BacktestConcurrencyGate()
     monkeypatch.setattr(runner, "_backtest_concurrency_gate", gate)
     monkeypatch.setattr(
@@ -173,7 +276,10 @@ def test_malformed_status_releases_only_its_own_reservation(monkeypatch) -> None
         runner_instance.status("job-1")
 
     assert exc_info.value.status_code == status.HTTP_502_BAD_GATEWAY
-    assert runner_instance.submit({"symbol": "RB0910"})["job_id"] == "job-2"
+    with pytest.raises(HTTPException) as exc_info:
+        runner_instance.submit({"symbol": "RB0910"})
+
+    assert exc_info.value.status_code == status.HTTP_429_TOO_MANY_REQUESTS
 
 
 @pytest.mark.parametrize("command", ["status", "result"])

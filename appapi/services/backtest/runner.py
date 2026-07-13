@@ -170,33 +170,17 @@ class QuantRuntimeRunner:
         return output
 
     def status(self, job_id: str) -> dict[str, Any]:
-        try:
-            output = self._invoke_worker("status", {"job_id": job_id})
-        except Exception:
-            _backtest_job_capacity.release_job(self._reservation_owner, job_id)
-            raise
+        output = self._invoke_worker("status", {"job_id": job_id})
         self._validated_response_job_id(output, job_id)
-        try:
-            job_status = self._validated_job_status(output)
-        except Exception:
-            _backtest_job_capacity.release_job(self._reservation_owner, job_id)
-            raise
+        job_status = self._validated_job_status(output)
         if job_status in _TERMINAL_JOB_STATUSES:
             _backtest_job_capacity.release_job(self._reservation_owner, job_id)
         return output
 
     def result(self, job_id: str) -> dict[str, Any]:
-        try:
-            output = self._invoke_worker("result", {"job_id": job_id})
-        except Exception:
-            _backtest_job_capacity.release_job(self._reservation_owner, job_id)
-            raise
+        output = self._invoke_worker("result", {"job_id": job_id})
         self._validated_response_job_id(output, job_id)
-        try:
-            job_status = self._validated_job_status(output)
-        except Exception:
-            _backtest_job_capacity.release_job(self._reservation_owner, job_id)
-            raise
+        job_status = self._validated_job_status(output)
         if job_status in _TERMINAL_JOB_STATUSES:
             _backtest_job_capacity.release_job(self._reservation_owner, job_id)
         return output
@@ -278,10 +262,10 @@ class QuantRuntimeRunner:
 
     def shutdown(self) -> None:
         """Drop local reservations when this runner's worker is stopped or replaced."""
-        _backtest_job_capacity.release_owner(self._reservation_owner)
         shutdown = getattr(self._worker_adapter, "shutdown", None)
         if callable(shutdown):
             shutdown()
+        _backtest_job_capacity.release_owner(self._reservation_owner)
 
 
 def _capacity_exhausted_http_error(exc: RuntimeError) -> HTTPException:
@@ -379,9 +363,10 @@ class WorkerProcessTransport:
         """Stop the worker so a replacement starts with no stale jobs."""
         with self._lock:
             process = self._process
+            if process is not None and process.poll() is None:
+                process.terminate()
+                process.wait()
             self._process = None
-        if process is not None and process.poll() is None:
-            process.terminate()
 
     def _send(self, command: str, payload: dict[str, Any]) -> dict[str, Any]:
         process = self._ensure_process()

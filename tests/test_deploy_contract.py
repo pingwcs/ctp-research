@@ -47,6 +47,24 @@ def test_api_image_uses_only_api_dependencies_and_a_non_root_command() -> None:
     assert 'CMD ["python", "-m", "appapi.main"]' in dockerfile
 
 
+def test_platform_compose_includes_loopback_ui_service() -> None:
+    compose = _read("deploy/compose.platform.yml")
+
+    assert "appui:" in compose
+    assert '"127.0.0.1:5173:8080"' in compose
+
+
+def test_ui_image_serves_spa_and_proxies_api() -> None:
+    dockerfile = _read("deploy/appui/Dockerfile")
+    nginx = _read("deploy/appui/default.conf")
+
+    assert "pnpm build" in dockerfile
+    assert "nginx-unprivileged" in dockerfile
+    assert "location /api/" in nginx
+    assert "proxy_pass http://appapi:8000" in nginx
+    assert "try_files $uri $uri/ /index.html" in nginx
+
+
 def test_tracked_platform_deployment_files_contain_no_literal_postgres_password() -> None:
     deployment_files = (
         "deploy/compose.platform.yml",

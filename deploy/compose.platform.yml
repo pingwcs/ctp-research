@@ -24,5 +24,14 @@ services:
     ports:
       - "127.0.0.1:8000:8000"
 
+  appui:
+    build:
+      context: ..
+      dockerfile: deploy/appui/Dockerfile
+    depends_on:
+      - appapi
+    ports:
+      - "127.0.0.1:5173:8080"
+
 volumes:
   platform_postgres_data:

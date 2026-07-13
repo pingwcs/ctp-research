@@ -106,7 +106,7 @@ pnpm build
 
 ## Configuration
 
-Backend paths, CORS, authentication, and quant-runtime settings are controlled by environment variables defined in `global_config.py`. The frontend proxy reads `VITE_APPAPI_TARGET` and defaults to `http://127.0.0.1:8000`.
+Backend paths, CORS, authentication, and quant-runtime settings are controlled by environment variables defined in `global_config.py`. Single-host platform paths use `PLATFORM_ROOT`, which defaults to this repository and places data under `var/data`, market data under `var/data/market`, and state under `var/state`. Supply the PostgreSQL DSN through `PLATFORM_POSTGRES_DSN` outside source control; no database password belongs in tracked files. `PLATFORM_PRIVATE_NETWORK_ONLY` defaults to `true`. The frontend proxy reads `VITE_APPAPI_TARGET` and defaults to `http://127.0.0.1:8000`.
 
 Local PostgreSQL and Redis services are defined in `deploy/compose.live-trading.yml`. Create required secret files locally and never commit database passwords, token secrets, or CTP account credentials.
 

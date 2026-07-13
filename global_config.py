@@ -10,6 +10,8 @@ from pathlib import Path
 import sys
 from typing import Mapping
 
+from platform_config import load_platform_config
+
 
 DEFAULT_PROJECT_ROOT = Path(__file__).resolve().parent
 
@@ -17,7 +19,6 @@ ENV_PROJECT_ROOT = "CTP_RESEARCH_PROJECT_ROOT"
 ENV_MARKET_DATA_DIR = "MARKET_DATA_DIR"
 ENV_MARKET_LOG_DIR = "MARKET_LOG_DIR"
 ENV_MARKET_CORS_ORIGINS = "MARKET_CORS_ORIGINS"
-ENV_AUTH_DATABASE_DSN = "AUTH_DATABASE_DSN"
 ENV_AUTH_TOKEN_SECRET = "AUTH_TOKEN_SECRET"
 ENV_QUANT_RUNTIME_1MIN_DIR = "QUANT_RUNTIME_1MIN_DIR"
 ENV_QUANT_RUNTIME_DIR = "QUANT_RUNTIME_DIR"
@@ -33,7 +34,6 @@ DEFAULT_MARKET_CORS_ORIGINS = (
     "http://localhost:5173",
     "http://127.0.0.1:5173",
 )
-DEFAULT_AUTH_DATABASE_DSN = "postgresql://postgres:postgres@localhost:5432/ctp_research"
 DEFAULT_AUTH_TOKEN_SECRET = "local-development-auth-secret"
 DEFAULT_QUANT_RUNTIME_1MIN_DIR = "data/output/1min"
 DEFAULT_QUANT_RUNTIME_DIR = "quant_runtime/runtime"
@@ -89,6 +89,7 @@ def load_environment_config(
     environ: Mapping[str, str] | None = None,
 ) -> EnvironmentConfig:
     env = os.environ if environ is None else environ
+    platform_config = load_platform_config(env)
     project_root = _resolve_project_root(env)
     cors_origins = _csv_tuple(
         env.get(
@@ -99,16 +100,10 @@ def load_environment_config(
 
     return EnvironmentConfig(
         project_root=project_root,
-        market_data_dir=_resolve_path(
-            project_root,
-            env.get(ENV_MARKET_DATA_DIR, DEFAULT_MARKET_DATA_DIR),
-        ),
-        market_log_dir=_resolve_path(
-            project_root,
-            env.get(ENV_MARKET_LOG_DIR, DEFAULT_MARKET_LOG_DIR),
-        ),
+        market_data_dir=platform_config.market_data_root,
+        market_log_dir=platform_config.state_root,
         market_cors_origins=cors_origins,
-        auth_database_dsn=env.get(ENV_AUTH_DATABASE_DSN, DEFAULT_AUTH_DATABASE_DSN),
+        auth_database_dsn=platform_config.postgres_dsn,
         auth_token_secret=env.get(
             ENV_AUTH_TOKEN_SECRET,
             DEFAULT_AUTH_TOKEN_SECRET,

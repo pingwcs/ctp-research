@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from global_config import load_environment_config
+from platform_config import load_platform_config
 
 
 @dataclass(frozen=True)
@@ -30,11 +31,13 @@ class Settings:
     quant_runtime_timeout_seconds: float = 0.0
     quant_runtime_minute_data_dir: Path = project_root
     cors_origins: tuple[str, ...] = ()
+    private_network_only: bool = True
 
 
 def load_settings(environ=None) -> Settings:
     """业务功能: 从环境变量和默认路径装配 appapi 配置。"""
     env_config = load_environment_config(environ)
+    platform_config = load_platform_config(environ)
     return Settings(
         project_root=env_config.project_root,
         data_dir=env_config.market_data_dir,
@@ -46,6 +49,7 @@ def load_settings(environ=None) -> Settings:
         quant_runtime_timeout_seconds=env_config.quant_runtime_timeout_seconds,
         quant_runtime_minute_data_dir=env_config.quant_runtime_minute_data_dir,
         cors_origins=env_config.market_cors_origins,
+        private_network_only=platform_config.private_network_only,
     )
 
 

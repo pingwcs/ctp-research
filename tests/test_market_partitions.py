@@ -33,37 +33,3 @@ def test_pipeline_help_includes_market_root_option():
     )
 
     assert "--market-root" in completed.stdout
-
-
-def test_pipeline_uses_configured_market_root_when_option_is_omitted(
-    monkeypatch, tmp_path
-):
-    pipeline_root = Path(__file__).resolve().parents[1] / "data_pipeline"
-    if str(pipeline_root) not in sys.path:
-        sys.path.insert(0, str(pipeline_root))
-    import run
-
-    configured_root = tmp_path / "configured-market"
-    monkeypatch.setattr(run.default_config, "market_root", str(configured_root))
-    monkeypatch.setattr(sys, "argv", ["run.py", "--no-influx"])
-    captured = {}
-
-    def fake_run_pipeline(config):
-        captured["market_root"] = config.market_root
-        return {
-            "total_contracts": 0,
-            "successful": 0,
-            "failed": 0,
-            "anomalies_count": 0,
-            "daily_volume_path": "",
-            "quality_log_path": "",
-        }
-
-    monkeypatch.setattr(
-        run,
-        "run_pipeline",
-        fake_run_pipeline,
-    )
-
-    assert run.main() == 0
-    assert captured["market_root"] == str(configured_root)

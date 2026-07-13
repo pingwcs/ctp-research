@@ -33,17 +33,73 @@ class BacktestConcurrencyGate:
             raise ValueError("max_active_jobs must be positive")
         self._capacity = BoundedSemaphore(max_active_jobs)
 
+    def try_acquire(self) -> bool:
+        return self._capacity.acquire(blocking=False)
+
+    def release(self) -> None:
+        self._capacity.release()
+
     @contextmanager
     def acquire(self):
-        if not self._capacity.acquire(blocking=False):
+        if not self.try_acquire():
             raise RuntimeError("backtest capacity exhausted")
         try:
             yield
         finally:
-            self._capacity.release()
+            self.release()
 
 
 _backtest_concurrency_gate = BacktestConcurrencyGate()
+
+
+class BacktestJobCapacityRegistry:
+    """Keep async capacity reserved until the worker reports a terminal state."""
+
+    def __init__(self, gate: BacktestConcurrencyGate) -> None:
+        self._gate = gate
+        self._pending: set[object] = set()
+        self._jobs: dict[str, object] = {}
+        self._lock = Lock()
+
+    def reserve(self) -> object:
+        if not self._gate.try_acquire():
+            raise RuntimeError("backtest capacity exhausted")
+        token = object()
+        with self._lock:
+            self._pending.add(token)
+        return token
+
+    def bind(self, token: object, job_id: str) -> None:
+        with self._lock:
+            if token not in self._pending:
+                return
+            self._pending.remove(token)
+            self._jobs[job_id] = token
+
+    def release(self, token: object) -> None:
+        with self._lock:
+            if token not in self._pending:
+                return
+            self._pending.remove(token)
+        self._gate.release()
+
+    def release_job(self, job_id: str) -> None:
+        with self._lock:
+            token = self._jobs.pop(job_id, None)
+        if token is not None:
+            self._gate.release()
+
+    def release_all(self) -> None:
+        with self._lock:
+            reservations = len(self._pending) + len(self._jobs)
+            self._pending.clear()
+            self._jobs.clear()
+        for _ in range(reservations):
+            self._gate.release()
+
+
+_backtest_job_capacity = BacktestJobCapacityRegistry(_backtest_concurrency_gate)
+_TERMINAL_JOB_STATUSES = {"succeeded", "failed"}
 
 
 class QuantRuntimeRunner:
@@ -83,22 +139,59 @@ class QuantRuntimeRunner:
         return self._invoke_backtest("run", payload, self._sync_adapter)
 
     def submit(self, payload: dict[str, Any]) -> dict[str, Any]:
-        return self._invoke_backtest("submit", payload, self._worker_adapter)
+        try:
+            reservation = _backtest_job_capacity.reserve()
+        except RuntimeError as exc:
+            raise _capacity_exhausted_http_error(exc) from exc
+
+        try:
+            output = self._invoke_worker("submit", payload)
+            job_id = output.get("job_id")
+            job_status = output.get("status")
+            if not isinstance(job_id, str) or not isinstance(job_status, str):
+                raise HTTPException(
+                    status_code=status.HTTP_502_BAD_GATEWAY,
+                    detail="quant runtime worker returned an invalid job response",
+                )
+        except Exception:
+            _backtest_job_capacity.release(reservation)
+            raise
+
+        if job_status in _TERMINAL_JOB_STATUSES:
+            _backtest_job_capacity.release(reservation)
+        else:
+            _backtest_job_capacity.bind(reservation, job_id)
+        return output
 
     def status(self, job_id: str) -> dict[str, Any]:
-        return self._invoke_worker("status", {"job_id": job_id})
+        output = self._invoke_worker("status", {"job_id": job_id})
+        self._release_terminal_job(job_id, output)
+        return output
 
     def result(self, job_id: str) -> dict[str, Any]:
-        return self._invoke_worker("result", {"job_id": job_id})
+        output = self._invoke_worker("result", {"job_id": job_id})
+        self._release_terminal_job(job_id, output)
+        return output
 
     def clear_metadata_cache(self) -> None:
         self._cached_metadata = None
         self._cached_metadata_at = 0.0
 
     def _invoke_worker(self, command: str, payload: dict[str, Any]) -> dict[str, Any]:
-        output = self._worker_adapter.invoke(command, payload)
+        try:
+            output = self._worker_adapter.invoke(command, payload)
+        except Exception:
+            _backtest_job_capacity.release_all()
+            raise
+        if not isinstance(output, dict):
+            _backtest_job_capacity.release_all()
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="quant runtime worker returned a non-object JSON payload",
+            )
         error = output.get("error")
         if error:
+            _backtest_job_capacity.release_all()
             raise HTTPException(
                 status_code=int(error.get("status_code") or 502)
                 if isinstance(error, dict)
@@ -111,6 +204,11 @@ class QuantRuntimeRunner:
                 ),
             )
         return output
+
+    @staticmethod
+    def _release_terminal_job(job_id: str, output: dict[str, Any]) -> None:
+        if output.get("status") in _TERMINAL_JOB_STATUSES:
+            _backtest_job_capacity.release_job(job_id)
 
     def _invoke_backtest(
         self,
@@ -124,10 +222,7 @@ class QuantRuntimeRunner:
         except RuntimeError as exc:
             if str(exc) != "backtest capacity exhausted":
                 raise
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail=str(exc),
-            ) from exc
+            raise _capacity_exhausted_http_error(exc) from exc
 
         error = output.get("error")
         if error:
@@ -143,6 +238,20 @@ class QuantRuntimeRunner:
                 ),
             )
         return output
+
+    def shutdown(self) -> None:
+        """Drop local reservations when this runner's worker is stopped or replaced."""
+        _backtest_job_capacity.release_all()
+        shutdown = getattr(self._worker_adapter, "shutdown", None)
+        if callable(shutdown):
+            shutdown()
+
+
+def _capacity_exhausted_http_error(exc: RuntimeError) -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+        detail=str(exc),
+    )
 
 
 class SubprocessRuntimeAdapter:
@@ -229,6 +338,14 @@ class WorkerProcessTransport:
         with self._lock:
             return self._send(command, payload or {})
 
+    def shutdown(self) -> None:
+        """Stop the worker so a replacement starts with no stale jobs."""
+        with self._lock:
+            process = self._process
+            self._process = None
+        if process is not None and process.poll() is None:
+            process.terminate()
+
     def _send(self, command: str, payload: dict[str, Any]) -> dict[str, Any]:
         process = self._ensure_process()
         request = json.dumps(
@@ -308,6 +425,8 @@ def get_quant_runtime_runner() -> QuantRuntimeRunner:
 
 def clear_quant_runtime_runner() -> None:
     global _quant_runtime_runner
+    if _quant_runtime_runner is not None:
+        _quant_runtime_runner.shutdown()
     _quant_runtime_runner = None
 
 

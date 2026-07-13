@@ -15,7 +15,9 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from typing import Optional
 
 import pandas as pd
+import pyarrow as pa
 
+from market_data import MarketPartition, partition_path, publish_parquet
 from src.config import PipelineConfig, config as default_config
 from src.logger import AnomalyRecord, collect_worker_logs, write_quality_log
 from src.cleaner import clean_dataframe
@@ -42,6 +44,7 @@ def process_single_contract(
     influx_config,
     minute_output_subdir: str | None = None,
     kline_output_subdir: str | None = None,
+    market_root: str | None = None,
 ) -> dict:
     """
     Process a single contract CSV end-to-end. Designed to run in a worker process.
@@ -95,6 +98,11 @@ def process_single_contract(
         logger.info(
             f"[{symbol}] 1-min Parquet written: {minute_parquet_path}  ({len(df)} rows)"
         )
+
+        # Publish the same historical rows to the canonical, date-partitioned
+        # market store.  Legacy output above remains intact for existing users.
+        if market_root:
+            _publish_market_partitions(df, market_root)
 
         # 5. Resample to 5-min
         df_5min = resample_to_5min(df)
@@ -217,6 +225,7 @@ def run_pipeline(cfg: Optional[PipelineConfig] = None) -> dict:
                 influx_config,
                 cfg.minute_output_subdir,
                 cfg.kline_output_subdir,
+                cfg.market_root,
             ): f
             for f in csv_files
         }
@@ -282,3 +291,31 @@ def _worker_initializer(pipeline_root: str) -> None:
 
     if pipeline_root not in sys.path:
         sys.path.insert(0, pipeline_root)
+
+
+def _publish_market_partitions(df: pd.DataFrame, market_root: str) -> None:
+    """Publish cleaned history once per exchange/instrument/trading-date."""
+    required_columns = {"exchange", "symbol", "bob"}
+    if not required_columns.issubset(df.columns):
+        logger.warning("Skipping canonical market publish: missing partition columns")
+        return
+
+    partitioned = df.assign(
+        _trading_date=pd.to_datetime(df["bob"], utc=True).dt.date,
+    )
+    for (exchange, instrument, trading_date), rows in partitioned.groupby(
+        ["exchange", "symbol", "_trading_date"], sort=False
+    ):
+        partition = MarketPartition(
+            source="ctp",
+            exchange=str(exchange),
+            instrument=str(instrument),
+            trading_date=trading_date,
+        )
+        target = partition_path(market_root, partition)
+        table = pa.Table.from_pandas(
+            rows.drop(columns=["_trading_date", "exchange", "symbol"]),
+            preserve_index=False,
+        )
+        publish_parquet(table, target)
+        logger.info("[%s] Canonical market Parquet written: %s", instrument, target)

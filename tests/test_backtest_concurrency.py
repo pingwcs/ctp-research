@@ -176,6 +176,72 @@ def test_malformed_status_releases_only_its_own_reservation(monkeypatch) -> None
     assert runner_instance.submit({"symbol": "RB0910"})["job_id"] == "job-2"
 
 
+@pytest.mark.parametrize("command", ["status", "result"])
+@pytest.mark.parametrize("response_job_id", ["other", None, 1])
+def test_mismatched_worker_job_id_does_not_release_active_reservation(
+    monkeypatch, command: str, response_job_id: str | int | None
+) -> None:
+    gate = BacktestConcurrencyGate()
+    monkeypatch.setattr(runner, "_backtest_concurrency_gate", gate)
+    monkeypatch.setattr(
+        runner,
+        "_backtest_job_capacity",
+        runner.BacktestJobCapacityRegistry(gate),
+    )
+
+    class WorkerAdapter:
+        def invoke(self, invoked_command, payload):
+            if invoked_command == "submit":
+                return {"job_id": "job-1", "status": "queued", "error": None}
+            if invoked_command == command:
+                assert payload == {"job_id": "job-1"}
+                return {
+                    "job_id": response_job_id,
+                    "status": "succeeded",
+                    "error": None,
+                }
+            raise AssertionError(f"unexpected command: {invoked_command}")
+
+    runner_instance = QuantRuntimeRunner(worker_adapter=WorkerAdapter())
+    runner_instance.submit({"symbol": "RB0909"})
+
+    with pytest.raises(HTTPException) as exc_info:
+        getattr(runner_instance, command)("job-1")
+
+    assert exc_info.value.status_code == status.HTTP_502_BAD_GATEWAY
+    with pytest.raises(HTTPException) as exc_info:
+        runner_instance.submit({"symbol": "RB0910"})
+
+    assert exc_info.value.status_code == status.HTTP_429_TOO_MANY_REQUESTS
+
+
+def test_shutdown_only_releases_reservations_owned_by_that_runner(monkeypatch) -> None:
+    gate = BacktestConcurrencyGate()
+    monkeypatch.setattr(runner, "_backtest_concurrency_gate", gate)
+    monkeypatch.setattr(
+        runner,
+        "_backtest_job_capacity",
+        runner.BacktestJobCapacityRegistry(gate),
+    )
+
+    class WorkerAdapter:
+        def invoke(self, command, payload):
+            assert command == "submit"
+            return {"job_id": "job-1", "status": "queued", "error": None}
+
+    active_runner = QuantRuntimeRunner(worker_adapter=WorkerAdapter())
+    other_runner = QuantRuntimeRunner(worker_adapter=WorkerAdapter())
+    active_runner.submit({"symbol": "RB0909"})
+
+    other_runner.shutdown()
+
+    with pytest.raises(HTTPException) as exc_info:
+        other_runner.submit({"symbol": "RB0910"})
+
+    assert exc_info.value.status_code == status.HTTP_429_TOO_MANY_REQUESTS
+    active_runner.shutdown()
+
+
 def test_run_endpoint_returns_429_when_backtest_capacity_is_exhausted(monkeypatch) -> None:
     def exhausted(_request):
         raise HTTPException(

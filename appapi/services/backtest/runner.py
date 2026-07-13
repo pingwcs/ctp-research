@@ -57,43 +57,47 @@ class BacktestJobCapacityRegistry:
 
     def __init__(self, gate: BacktestConcurrencyGate) -> None:
         self._gate = gate
-        self._pending: set[object] = set()
-        self._jobs: dict[str, object] = {}
+        self._pending: dict[object, object] = {}
+        self._jobs: dict[tuple[object, str], object] = {}
         self._lock = Lock()
 
-    def reserve(self) -> object:
+    def reserve(self, owner: object) -> object:
         if not self._gate.try_acquire():
             raise RuntimeError("backtest capacity exhausted")
         token = object()
         with self._lock:
-            self._pending.add(token)
+            self._pending[token] = owner
         return token
 
-    def bind(self, token: object, job_id: str) -> None:
+    def bind(self, owner: object, token: object, job_id: str) -> None:
         with self._lock:
-            if token not in self._pending:
+            if self._pending.get(token) is not owner:
                 return
-            self._pending.remove(token)
-            self._jobs[job_id] = token
+            del self._pending[token]
+            self._jobs[(owner, job_id)] = token
 
-    def release(self, token: object) -> None:
+    def release(self, owner: object, token: object) -> None:
         with self._lock:
-            if token not in self._pending:
+            if self._pending.get(token) is not owner:
                 return
-            self._pending.remove(token)
+            del self._pending[token]
         self._gate.release()
 
-    def release_job(self, job_id: str) -> None:
+    def release_job(self, owner: object, job_id: str) -> None:
         with self._lock:
-            token = self._jobs.pop(job_id, None)
+            token = self._jobs.pop((owner, job_id), None)
         if token is not None:
             self._gate.release()
 
-    def release_all(self) -> None:
+    def release_owner(self, owner: object) -> None:
         with self._lock:
-            reservations = len(self._pending) + len(self._jobs)
-            self._pending.clear()
-            self._jobs.clear()
+            pending = [token for token, token_owner in self._pending.items() if token_owner is owner]
+            jobs = [key for key in self._jobs if key[0] is owner]
+            for token in pending:
+                del self._pending[token]
+            for key in jobs:
+                del self._jobs[key]
+            reservations = len(pending) + len(jobs)
         for _ in range(reservations):
             self._gate.release()
 
@@ -119,6 +123,7 @@ class QuantRuntimeRunner:
         self._clock = clock
         self._cached_metadata: dict[str, Any] | None = None
         self._cached_metadata_at = 0.0
+        self._reservation_owner = object()
 
     def metadata(self) -> dict[str, Any]:
         now = self._clock()
@@ -141,7 +146,7 @@ class QuantRuntimeRunner:
 
     def submit(self, payload: dict[str, Any]) -> dict[str, Any]:
         try:
-            reservation = _backtest_job_capacity.reserve()
+            reservation = _backtest_job_capacity.reserve(self._reservation_owner)
         except RuntimeError as exc:
             raise _capacity_exhausted_http_error(exc) from exc
 
@@ -155,35 +160,45 @@ class QuantRuntimeRunner:
                     detail="quant runtime worker returned an invalid job response",
                 )
         except Exception:
-            _backtest_job_capacity.release(reservation)
+            _backtest_job_capacity.release(self._reservation_owner, reservation)
             raise
 
         if job_status in _TERMINAL_JOB_STATUSES:
-            _backtest_job_capacity.release(reservation)
+            _backtest_job_capacity.release(self._reservation_owner, reservation)
         else:
-            _backtest_job_capacity.bind(reservation, job_id)
+            _backtest_job_capacity.bind(self._reservation_owner, reservation, job_id)
         return output
 
     def status(self, job_id: str) -> dict[str, Any]:
         try:
             output = self._invoke_worker("status", {"job_id": job_id})
+        except Exception:
+            _backtest_job_capacity.release_job(self._reservation_owner, job_id)
+            raise
+        self._validated_response_job_id(output, job_id)
+        try:
             job_status = self._validated_job_status(output)
         except Exception:
-            _backtest_job_capacity.release_job(job_id)
+            _backtest_job_capacity.release_job(self._reservation_owner, job_id)
             raise
         if job_status in _TERMINAL_JOB_STATUSES:
-            _backtest_job_capacity.release_job(job_id)
+            _backtest_job_capacity.release_job(self._reservation_owner, job_id)
         return output
 
     def result(self, job_id: str) -> dict[str, Any]:
         try:
             output = self._invoke_worker("result", {"job_id": job_id})
+        except Exception:
+            _backtest_job_capacity.release_job(self._reservation_owner, job_id)
+            raise
+        self._validated_response_job_id(output, job_id)
+        try:
             job_status = self._validated_job_status(output)
         except Exception:
-            _backtest_job_capacity.release_job(job_id)
+            _backtest_job_capacity.release_job(self._reservation_owner, job_id)
             raise
         if job_status in _TERMINAL_JOB_STATUSES:
-            _backtest_job_capacity.release_job(job_id)
+            _backtest_job_capacity.release_job(self._reservation_owner, job_id)
         return output
 
     def clear_metadata_cache(self) -> None:
@@ -222,6 +237,16 @@ class QuantRuntimeRunner:
             )
         return job_status
 
+    @staticmethod
+    def _validated_response_job_id(output: dict[str, Any], requested_job_id: str) -> None:
+        if output.get("job_id") != requested_job_id or not isinstance(
+            output.get("job_id"), str
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="quant runtime worker returned an invalid job response",
+            )
+
     def _invoke_backtest(
         self,
         command: str,
@@ -253,7 +278,7 @@ class QuantRuntimeRunner:
 
     def shutdown(self) -> None:
         """Drop local reservations when this runner's worker is stopped or replaced."""
-        _backtest_job_capacity.release_all()
+        _backtest_job_capacity.release_owner(self._reservation_owner)
         shutdown = getattr(self._worker_adapter, "shutdown", None)
         if callable(shutdown):
             shutdown()

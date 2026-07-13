@@ -25,7 +25,6 @@ PROJECT_ROOT = os.path.dirname(PIPELINE_ROOT)
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-from platform_config import load_platform_config
 from src.config import PipelineConfig, InfluxDBConfig, config as default_config
 from src.pipeline import run_pipeline
 
@@ -54,7 +53,7 @@ def main():
     )
     parser.add_argument(
         "--market-root",
-        default=str(load_platform_config().market_data_root),
+        default=default_config.market_root,
         help="Root directory for canonical partitioned market Parquet files",
     )
     parser.add_argument(

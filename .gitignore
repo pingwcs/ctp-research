@@ -32,7 +32,7 @@ var/
 .pytest_cache/
 
 # test files
-tests/
+tests/*
 .tmp/
 
 

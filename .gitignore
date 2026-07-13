@@ -2,7 +2,7 @@
 .agents/
 data/
 venv/
-docs/
+agent-docs/
 /quant_runtime/runtime
 /.codex-bug-assets
 
@@ -30,6 +30,12 @@ var/
 .installed.cfg
 *.egg
 .pytest_cache/
+
+# test files
+tests/*
+.tmp/
+
+
 
 
 # npm 缓存文件

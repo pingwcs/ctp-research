@@ -1,4 +1,10 @@
-"""CLI runner used by appapi to call the quant runtime."""
+"""CLI runner used by appapi to call the quant runtime.
+
+业务功能: 提供 list-symbols、metadata、import-data、run 四个命令，供 appapi
+或本地命令行调用独立回测运行时。
+算法要点: stdout 只输出最终 JSON 响应，运行过程中的打印被捕获后转到
+stderr，保证调用方可以稳定解析协议结果。
+"""
 
 import argparse
 from contextlib import redirect_stdout
@@ -15,10 +21,16 @@ from quant_runtime.settings import settings
 
 
 def _print_json(payload: dict[str, Any]) -> None:
+    """业务功能: 以紧凑 JSON 输出 runner 协议响应。"""
     print(json.dumps(payload, ensure_ascii=False, separators=(",", ":")))
 
 
 def _payload_from_args(args: argparse.Namespace) -> dict[str, Any]:
+    """业务功能: 从 JSON 参数、JSON 文件或显式 CLI 参数构造 payload。
+
+    算法要点: JSON 输入和命令行字段互斥优先；最终删除 None/空指标列表，
+    让 BacktestRequest 保留运行时默认值。
+    """
     if args.payload_json and args.payload_file:
         raise ValueError("use only one of --payload-json or --payload-file")
 
@@ -45,11 +57,17 @@ def _payload_from_args(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def _minute_data_dir(args: argparse.Namespace) -> Path:
+    """业务功能: 解析本次 runner 命令使用的 1 分钟行情目录。"""
     value = args.minute_data_dir or args.input_dir
     return Path(value).resolve() if value else settings.minute_data_dir
 
 
 def handle_command(args: argparse.Namespace) -> dict[str, Any]:
+    """业务功能: 根据命令分派到元数据、行情导入或回测执行。
+
+    算法要点: VNPY 相关模块延迟导入，避免 metadata/list-symbols 这类轻量
+    命令承担策略引擎初始化成本。
+    """
     minute_data_dir = _minute_data_dir(args)
 
     if args.command == "list-symbols":
@@ -79,6 +97,7 @@ def handle_command(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """业务功能: 定义 quant_runtime.runner 的命令行协议。"""
     parser = argparse.ArgumentParser(prog="python -m quant_runtime.runner")
     parser.add_argument(
         "command",
@@ -97,6 +116,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    """业务功能: runner 进程入口，统一输出成功或失败的 JSON envelope。"""
     parser = build_parser()
     args = parser.parse_args(argv)
     diagnostics = io.StringIO()
@@ -117,6 +137,7 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def _print_diagnostics(diagnostics: io.StringIO) -> None:
+    """算法要点: 将被捕获的诊断输出转发到 stderr，避免污染 stdout JSON。"""
     value = diagnostics.getvalue()
     if value:
         print(value, file=sys.stderr, end="")

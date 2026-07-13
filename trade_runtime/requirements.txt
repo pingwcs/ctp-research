@@ -1,0 +1,3 @@
+# Live trading CTP adapter dependencies. Pin both framework and native gateway.
+vnpy==4.4.0
+vnpy_ctp==6.7.11.4

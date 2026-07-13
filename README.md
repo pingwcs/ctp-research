@@ -1,16 +1,63 @@
 # FutureData CTP Research
 
-This repository contains a FastAPI backend (`appapi`) and a Vite React frontend (`appui`) for futures market data research, K-line browsing, and backtest result inspection.
+## Overview
 
-## Prerequisites
+FutureData CTP Research is a full-stack futures research platform for preparing market data, browsing K-line history, running strategy backtests, and developing a controlled CTP live-trading runtime.
+
+The repository combines a FastAPI backend, React/Vite frontend, multiprocessing data pipeline, standalone vn.py-based quant runtime, and safety-oriented live-trading domain components.
+
+## Capabilities
+
+- Normalize raw futures CSV data into canonical one-minute and five-minute parquet datasets.
+- Browse contract K-lines through a responsive web UI backed by DuckDB queries.
+- Discover strategies and metrics, run synchronous or asynchronous backtests, and inspect equity and trade results.
+- Register and authenticate users with PostgreSQL-backed credentials and signed bearer tokens.
+- Accept tenant-scoped, idempotent manual-order commands into durable PostgreSQL records.
+- Model risk checks, order lifecycles, Redis Stream delivery, runtime fencing, and CTP submission outcomes.
+
+## Architecture
+
+The main runtime path is:
+
+```text
+raw CSV -> data_pipeline -> canonical parquet
+                                |-- appapi -> appui
+                                `-- quant_runtime -> backtest results -> appapi -> appui
+
+appui -> appapi -> PostgreSQL/outbox -> Redis Streams -> trade_runtime -> CTP
+                      ^                                  |
+                      `------- trade_supervisor ---------'
+```
+
+The research and backtest path is implemented. Live trading remains an emerging foundation that requires deployment integration, compatible Linux CTP dependencies, broker credentials, secrets, process supervision, callbacks, and reconciliation before production use.
+
+See the [architecture overview](docs/architecture/README.md) for subsystem relationships and runtime status.
+
+## Repository Map
+
+| Path | Responsibility |
+| --- | --- |
+| `appui` | React UI, state, charts, and typed API clients |
+| `appapi` | FastAPI routes, HTTP schemas, authentication, market queries, and orchestration |
+| `data_pipeline` | CSV cleaning, aggregation, quality reporting, and parquet output |
+| `quant_runtime` | Strategy/metric catalogs, vn.py import, backtest execution, and worker protocol |
+| `trade_runtime` | Risk, orders, idempotency, health, Redis, and CTP adapter boundaries |
+| `trade_supervisor` | Per-account runtime leases and fencing tokens |
+| `deploy` | PostgreSQL/Redis Compose services and trade-runtime image files |
+| `scripts` | OpenAPI generation and CTP runtime verification |
+| `tests` | Cross-subsystem contract and behavior tests |
+| `agent-docs` | Historical designs and implementation plans |
+| `docs/architecture` | Current maintainer-oriented architecture reference |
+
+## Quick Start
+
+Prerequisites:
 
 - Python 3.10+
 - Node.js 20.19+
-- pnpm 10.33.0, declared by `appui/package.json`
+- pnpm 10.33.0, declared in `appui/package.json`
 
-## Backend
-
-Run commands from the repository root:
+Start the backend from the repository root:
 
 ```powershell
 python -m venv venv
@@ -19,84 +66,59 @@ pip install -r appapi\requirements.txt
 python -m appapi.main
 ```
 
-The API starts on `http://127.0.0.1:8000` by default. A quick health check is available at `http://127.0.0.1:8000/health`.
+The API listens at `http://127.0.0.1:8000`; health is available at `http://127.0.0.1:8000/health`.
 
-## Runtime Boundaries
-
-The project is split into four layers:
-
-- `appui` owns UI state and typed HTTP client calls.
-- `appapi` owns HTTP schemas, request validation, runner orchestration, and mapping quant domain results into HTTP DTOs.
-- `data_pipeline` owns market-data normalization. Raw `data/input/*.csv` files are inputs only; canonical parquet read models are written under `data/output/1min` and `data/output/5min`.
-- `quant_runtime` owns strategy metadata, metric metadata, vn.py adapter import, strategy execution, and domain backtest results.
-
-`appapi` keeps the `/api/backtest/*` HTTP contract used by `appui`, but it does not contain strategy simulation code. It starts `quant_runtime.runner`, converts runner errors into HTTP errors, and maps runner domain JSON into API responses.
-
-`quant_runtime` is the standalone quant backtesting runtime. Its current adapter is vn.py under `quant_runtime/adapters/vnpy`, and it imports canonical 1-minute parquet bars into the vn.py database before running strategies.
-
-Install the quant runtime dependencies separately:
+Start the frontend in another terminal:
 
 ```powershell
-pip install -r quant_runtime\requirements.txt
-```
-
-Import one symbol into the vn.py database:
-
-```powershell
-python -m quant_runtime.runner import-data --payload-json "{\"symbol\":\"RB0909\",\"strategy\":\"ma_cross\",\"metrics\":[]}"
-```
-
-Run one backtest directly:
-
-```powershell
-python -m quant_runtime.runner run --payload-json "{\"symbol\":\"RB0909\",\"strategy\":\"ma_cross\",\"metrics\":[\"total_return\",\"max_drawdown\"]}"
-```
-
-Run through the API after `python -m appapi.main` starts:
-
-```powershell
-Invoke-RestMethod -Method Post `
-  -Uri http://127.0.0.1:8000/api/backtest/run `
-  -ContentType application/json `
-  -Body '{"symbol":"RB0909","strategy":"ma_cross","metrics":["total_return"]}'
-```
-
-## Frontend
-
-Run commands from `appui`:
-
-```powershell
+cd appui
 pnpm install
 pnpm dev
 ```
 
-Vite serves the app on `http://127.0.0.1:5173` and proxies `/api` to the backend target.
-
-## Proxy Target
-
-`appui/vite.config.ts` reads `VITE_APPAPI_TARGET` and defaults to `http://127.0.0.1:8000`.
-
-Create `appui/.env.local` from `appui/.env.example` when the backend is running elsewhere:
-
-```powershell
-Copy-Item appui\.env.example appui\.env.local
-```
-
-Then edit `VITE_APPAPI_TARGET` in `appui/.env.local`.
+Vite listens at `http://127.0.0.1:5173` and proxies `/api` to the backend.
 
 ## Common Commands
 
 ```powershell
-# Frontend
-cd appui
-pnpm dev
-pnpm build
-pnpm lint
-pnpm format
-pnpm preview
+# Prepare market data
+python data_pipeline\run.py --input-dir data/input --output-dir data/output
 
-# Backend
-cd ..
-python -m appapi.main
-python scripts\lint_python.py appapi
+# Quant runtime dependencies
+pip install -r quant_runtime\requirements.txt
+
+# Inspect runtime metadata
+python -m quant_runtime.runner metadata
+
+# Import a contract into vn.py
+python -m quant_runtime.runner import-data --payload-json '{"symbol":"RB0909","strategy":"ma_cross","metrics":[]}'
+
+# Run a backtest directly
+python -m quant_runtime.runner run --payload-json '{"symbol":"RB0909","strategy":"ma_cross","metrics":["total_return","max_drawdown"]}'
+
+# Run all Python tests
+.\venv\Scripts\python.exe -m pytest
+
+# Frontend checks (from appui)
+pnpm lint
+pnpm build
 ```
+
+## Configuration
+
+Backend paths, CORS, authentication, and quant-runtime settings are controlled by environment variables defined in `global_config.py`. The frontend proxy reads `VITE_APPAPI_TARGET` and defaults to `http://127.0.0.1:8000`.
+
+Local PostgreSQL and Redis services are defined in `deploy/compose.live-trading.yml`. Create required secret files locally and never commit database passwords, token secrets, or CTP account credentials.
+
+## Documentation
+
+- [Architecture overview](docs/architecture/README.md)
+- [Technology stack](docs/architecture/tech-stack.md)
+- [Component boundaries](docs/architecture/components.md)
+- [Data flows](docs/architecture/data-flows.md)
+- [Development and maintenance](docs/architecture/development.md)
+- [CTP account API contract](agent-docs/live-trading/ctp-account-api.md)
+
+## Project Status
+
+Market-data preparation, K-line browsing, authentication, and backtesting are implemented and tested. The live-trading modules establish safety and persistence contracts but are not yet a complete production trading service. Validate the pinned runtime image, native CTP libraries, SimNow connectivity, secrets handling, supervision, and recovery procedures before connecting any broker account.

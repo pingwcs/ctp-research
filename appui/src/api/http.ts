@@ -1,10 +1,20 @@
-import axios, { AxiosError, type AxiosInstance, type AxiosRequestConfig } from 'axios';
+import axios, {
+  AxiosError,
+  AxiosHeaders,
+  type AxiosInstance,
+  type AxiosRequestConfig,
+} from 'axios';
 
 const API_TIMEOUT_MS = 15000;
+let bearerToken: string | null = null;
 
 interface ApiErrorPayload {
-  detail?: string;
+  detail?: string | { msg?: string }[];
   message?: string;
+}
+
+export function setHttpAuthToken(token: string | null) {
+  bearerToken = token;
 }
 
 function getErrorMessage(error: unknown) {
@@ -14,7 +24,13 @@ function getErrorMessage(error: unknown) {
 
   const axiosError = error as AxiosError<ApiErrorPayload>;
   const payload = axiosError.response?.data;
-  return payload?.detail || payload?.message || axiosError.message || 'API request failed';
+  if (typeof payload?.detail === 'string') {
+    return payload.detail;
+  }
+  if (Array.isArray(payload?.detail)) {
+    return payload.detail.map((item) => item.msg).filter(Boolean).join('; ') || 'Request validation failed';
+  }
+  return payload?.message || axiosError.message || 'API request failed';
 }
 
 function createHttpClient(instance: AxiosInstance) {
@@ -63,7 +79,18 @@ function createHttpClient(instance: AxiosInstance) {
 }
 
 export const http = createHttpClient(
-  axios.create({
-    timeout: API_TIMEOUT_MS,
-  }),
+  (() => {
+    const instance = axios.create({
+      timeout: API_TIMEOUT_MS,
+    });
+    instance.interceptors.request.use((config) => {
+      if (bearerToken) {
+        const headers = AxiosHeaders.from(config.headers);
+        headers.set('Authorization', `Bearer ${bearerToken}`);
+        config.headers = headers;
+      }
+      return config;
+    });
+    return instance;
+  })(),
 );

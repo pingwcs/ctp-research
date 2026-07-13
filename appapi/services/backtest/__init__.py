@@ -1,4 +1,4 @@
-"""Public backtest service API."""
+"""Public backtest module interface."""
 
 from appapi.services.backtest.catalog import (
     available_metric_ids,

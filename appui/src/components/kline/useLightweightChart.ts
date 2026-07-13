@@ -86,7 +86,7 @@ function createBaseChart(
       maxBarSpacing: MAX_BAR_SPACING,
     },
     handleScroll: {
-      mouseWheel: true,
+      mouseWheel: false,
       pressedMouseMove: true,
       horzTouchDrag: true,
       vertTouchDrag: false,

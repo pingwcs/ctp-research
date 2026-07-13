@@ -3,6 +3,7 @@ import BellOutlined from '@ant-design/icons/BellOutlined';
 import ExperimentOutlined from '@ant-design/icons/ExperimentOutlined';
 import HomeOutlined from '@ant-design/icons/HomeOutlined';
 import LineChartOutlined from '@ant-design/icons/LineChartOutlined';
+import LogoutOutlined from '@ant-design/icons/LogoutOutlined';
 import MoonOutlined from '@ant-design/icons/MoonOutlined';
 import SettingOutlined from '@ant-design/icons/SettingOutlined';
 import SunOutlined from '@ant-design/icons/SunOutlined';
@@ -13,11 +14,13 @@ import WalletOutlined from '@ant-design/icons/WalletOutlined';
 import Avatar from 'antd/es/avatar';
 import Button from 'antd/es/button';
 import Layout from 'antd/es/layout';
+import Spin from 'antd/es/spin';
 import Tooltip from 'antd/es/tooltip';
 import Typography from 'antd/es/typography';
-import { lazy, Suspense, useEffect } from 'react';
+import { lazy, Suspense, useEffect, useRef } from 'react';
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 
+import { hydrateAuthSession, logout } from './store/authSlice';
 import { setThemeMode } from './store/configSlice';
 import { useAppDispatch, useAppSelector } from './store';
 
@@ -26,6 +29,7 @@ const { Header, Content, Sider } = Layout;
 const HomePage = lazy(() => import('./pages/HomePage'));
 const KLinePage = lazy(() => import('./pages/KLinePage'));
 const BacktestPage = lazy(() => import('./pages/BacktestPage'));
+const AuthPage = lazy(() => import('./pages/AuthPage'));
 
 const topNavItems = [
   { key: 'market', label: 'Market', to: '/kline' },
@@ -50,18 +54,57 @@ export default function App() {
   const dispatch = useAppDispatch();
   const location = useLocation();
   const navigate = useNavigate();
+  const hasHydratedAuthRef = useRef(false);
   const language = useAppSelector((state) => state.config.language);
   const themeMode = useAppSelector((state) => state.config.themeMode);
+  const authStatus = useAppSelector((state) => state.auth.status);
+  const authUser = useAppSelector((state) => state.auth.user);
 
   useEffect(() => {
     document.documentElement.lang = language;
   }, [language]);
+
+  useEffect(() => {
+    if (!hasHydratedAuthRef.current && authStatus === 'hydrating') {
+      hasHydratedAuthRef.current = true;
+      void dispatch(hydrateAuthSession());
+    }
+  }, [authStatus, dispatch]);
 
   const activeTopKey =
     topNavItems.find((item) => item.to && item.to === location.pathname)?.key ?? '';
   const isSideItemActive = (key: string) => key === location.pathname;
   const nextThemeMode = themeMode === 'dark' ? 'light' : 'dark';
   const themeToggleLabel = `Switch to ${nextThemeMode} mode`;
+  const roleLabel = authUser?.role === 'admin' ? 'Admin' : 'User';
+  const handleLogout = () => {
+    void dispatch(logout()).then(() => {
+      navigate('/auth', { replace: true });
+    });
+  };
+
+  if (authStatus === 'hydrating') {
+    return (
+      <div className="app-boot">
+        <Spin />
+      </div>
+    );
+  }
+
+  if (!authUser) {
+    return (
+      <Suspense fallback={<div className="route-loading" />}>
+        <Routes>
+          <Route element={<AuthPage />} path="/auth" />
+          <Route element={<Navigate replace to="/auth" />} path="*" />
+        </Routes>
+      </Suspense>
+    );
+  }
+
+  if (location.pathname === '/auth') {
+    return <Navigate replace to="/" />;
+  }
 
   return (
     <Layout className="app-layout">
@@ -110,6 +153,19 @@ export default function App() {
           </Tooltip>
           <Tooltip title="Settings">
             <Button aria-label="Settings" icon={<SettingOutlined />} shape="circle" type="text" />
+          </Tooltip>
+          <Typography.Text className="app-user-pill">
+            <span className="app-user-pill__email">{authUser.email}</span>
+            <span className="app-user-pill__role">{roleLabel}</span>
+          </Typography.Text>
+          <Tooltip title="Logout">
+            <Button
+              aria-label="Logout"
+              icon={<LogoutOutlined />}
+              onClick={handleLogout}
+              shape="circle"
+              type="text"
+            />
           </Tooltip>
           <Avatar className="app-avatar" icon={<UserOutlined />} />
         </div>

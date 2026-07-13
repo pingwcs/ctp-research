@@ -1,4 +1,9 @@
-"""Backtest business configuration loaded from JSON."""
+"""Backtest business configuration loaded from JSON.
+
+业务功能: 从 backtest.json 加载默认策略、引擎参数、策略列表和指标列表。
+算法要点: 运行时配置是策略/指标元数据的单一来源，加载时校验必填字段、
+id 唯一性和 default_strategy 引用关系。
+"""
 
 from dataclasses import dataclass
 import json
@@ -16,6 +21,8 @@ DEFAULT_CONFIG_PATH = DEFAULT_QUANT_RUNTIME_BACKTEST_CONFIG_PATH
 
 @dataclass(frozen=True)
 class StrategyConfig:
+    """业务功能: 描述一个可执行策略及其所属回测引擎。"""
+
     id: str
     name: str
     description: str
@@ -25,6 +32,8 @@ class StrategyConfig:
 
 @dataclass(frozen=True)
 class MetricConfig:
+    """业务功能: 描述一个可输出指标及其在引擎统计结果中的取值规则。"""
+
     id: str
     name: str
     description: str
@@ -36,6 +45,8 @@ class MetricConfig:
 
 @dataclass(frozen=True)
 class EngineConfig:
+    """业务功能: 描述 vn.py BacktestingEngine 所需的账户和合约参数。"""
+
     initial_cash: float
     contract_size: int
     rate: float
@@ -45,18 +56,22 @@ class EngineConfig:
 
 @dataclass(frozen=True)
 class BacktestConfig:
+    """业务功能: 一份完整回测业务配置的不可变快照。"""
+
     default_strategy: str
     engine: EngineConfig
     strategies: tuple[StrategyConfig, ...]
     metrics: tuple[MetricConfig, ...]
 
     def strategy(self, strategy_id: str) -> StrategyConfig:
+        """业务功能: 按 id 查找策略配置。"""
         for strategy in self.strategies:
             if strategy.id == strategy_id:
                 return strategy
         raise KeyError(strategy_id)
 
     def metric(self, metric_id: str) -> MetricConfig:
+        """业务功能: 按 id 查找指标配置。"""
         for metric in self.metrics:
             if metric.id == metric_id:
                 return metric
@@ -68,10 +83,12 @@ _cached_config: BacktestConfig | None = None
 
 
 def _config_path() -> Path:
+    """业务功能: 解析当前环境使用的 backtest.json 路径。"""
     return load_environment_config().quant_runtime_backtest_config
 
 
 def _required_mapping(payload: dict[str, Any], key: str) -> dict[str, Any]:
+    """算法要点: 校验配置字段必须是 JSON object。"""
     value = payload.get(key)
     if not isinstance(value, dict):
         raise ValueError(f"backtest config field {key!r} must be an object")
@@ -79,6 +96,7 @@ def _required_mapping(payload: dict[str, Any], key: str) -> dict[str, Any]:
 
 
 def _required_list(payload: dict[str, Any], key: str) -> list[dict[str, Any]]:
+    """算法要点: 校验配置字段必须是 object 列表。"""
     value = payload.get(key)
     if not isinstance(value, list) or not all(isinstance(item, dict) for item in value):
         raise ValueError(f"backtest config field {key!r} must be a list of objects")
@@ -86,6 +104,7 @@ def _required_list(payload: dict[str, Any], key: str) -> list[dict[str, Any]]:
 
 
 def _required_str(payload: dict[str, Any], key: str) -> str:
+    """算法要点: 校验配置字段必须是非空字符串。"""
     value = payload.get(key)
     if not isinstance(value, str) or not value:
         raise ValueError(f"backtest config field {key!r} must be a non-empty string")
@@ -93,6 +112,11 @@ def _required_str(payload: dict[str, Any], key: str) -> str:
 
 
 def _load_from_path(path: Path) -> BacktestConfig:
+    """业务功能: 从 JSON 文件加载并校验回测业务配置。
+
+    算法要点: 将数字字段强制转换为 float/int；策略和指标 id 必须唯一，
+    默认策略必须能在策略表中找到。
+    """
     payload = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(payload, dict):
         raise ValueError("backtest config must be a JSON object")
@@ -148,12 +172,14 @@ def _load_from_path(path: Path) -> BacktestConfig:
 
 
 def clear_backtest_config_cache() -> None:
+    """业务功能: 清空配置缓存，供测试或热更新后重新加载。"""
     global _cached_config, _cached_path
     _cached_config = None
     _cached_path = None
 
 
 def load_backtest_config() -> BacktestConfig:
+    """业务功能: 加载当前 backtest.json，并按路径缓存结果。"""
     global _cached_config, _cached_path
     path = _config_path()
     if _cached_config is not None and _cached_path == path:
@@ -165,4 +191,5 @@ def load_backtest_config() -> BacktestConfig:
 
 
 def default_strategy_id() -> str:
+    """业务功能: 返回配置中的默认策略 id。"""
     return load_backtest_config().default_strategy

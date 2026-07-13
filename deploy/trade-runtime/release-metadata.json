@@ -1,0 +1,11 @@
+{
+  "image_ref": "ctp-research/trade-runtime@sha256:c4c7e6abd78ec5b0e6e25e1f057b67dba673bd53708b0a8a5ef0926f36c4033d",
+  "platform": "linux/amd64",
+  "base_image": "ubuntu:24.04@sha256:4fbb8e6a8395de5a7550b33509421a2bafbc0aab6c06ba2cef9ebffbc7092d90",
+  "python": "3.12.3",
+  "vnpy": "4.4.0",
+  "vnpy_ctp": "6.7.11.4",
+  "offline_verification": "passed",
+  "missing_shared_libraries": [],
+  "simnow_online_verification": "not run: credentials intentionally not provided"
+}

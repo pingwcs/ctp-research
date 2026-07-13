@@ -1,5 +1,5 @@
 {
-  "default_strategy": "ma_cross",
+  "default_strategy": "hybrid_trend",
   "engine": {
     "initial_cash": 100000.0,
     "contract_size": 1,
@@ -8,6 +8,13 @@
     "price_tick": 1.0
   },
   "strategies": [
+    {
+      "id": "hybrid_trend",
+      "name": "Hybrid Trend",
+      "description": "Hybrid trend following with dynamic contract scoring and volatility sizing.",
+      "engine": "vnpy",
+      "class_path": "quant_runtime.adapters.vnpy.strategies.hybrid_trend_strategy.HybridTrendStrategy"
+    },
     {
       "id": "ma_cross",
       "name": "MA Cross",

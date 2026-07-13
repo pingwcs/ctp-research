@@ -1,0 +1,10 @@
+{
+  "broker_id": "9999",
+  "user_id": "simnow-test-user",
+  "password": "REPLACE_WITH_SIMNOW_PASSWORD",
+  "td_front": "tcp://td.example.invalid:41205",
+  "md_front": "tcp://md.example.invalid:41213",
+  "app_id": "simnow_client_test",
+  "auth_code": "REPLACE_WITH_SIMNOW_AUTH_CODE",
+  "product_info": "ctp-research"
+}

@@ -110,6 +110,18 @@ Backend paths, CORS, authentication, and quant-runtime settings are controlled b
 
 Local PostgreSQL and Redis services are defined in `deploy/compose.live-trading.yml`. Create required secret files locally and never commit database passwords, token secrets, or CTP account credentials.
 
+## Private Platform Compose Stack
+
+The platform stack runs only PostgreSQL and the API. It publishes both ports to loopback, so it is not a public-internet deployment. Copy the environment template, replace the local PostgreSQL password placeholders with the same value, and start the stack from the repository root:
+
+```powershell
+Copy-Item deploy\env\platform.env.example deploy\env\platform.env
+# In deploy\env\platform.env, change PLATFORM_ENV_FILE to ./env/platform.env.
+docker compose -f deploy/compose.platform.yml --env-file deploy/env/platform.env up -d
+```
+
+`deploy/env/platform.env` is intentionally untracked and supplies `PLATFORM_POSTGRES_DSN`. Do not place a real password in any tracked file. Tailscale is the only supported remote-access method: connect to the host over Tailscale, then access the loopback-bound services through an authenticated Tailscale/SSH tunnel. Do not expose the PostgreSQL or API ports publicly.
+
 ## Documentation
 
 - [Architecture overview](docs/architecture/README.md)

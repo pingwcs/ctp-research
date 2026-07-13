@@ -1,0 +1,28 @@
+services:
+  postgres:
+    image: postgres:16.9
+    env_file: ${PLATFORM_ENV_FILE}
+    volumes:
+      - platform_postgres_data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    ports:
+      - "127.0.0.1:5432:5432"
+
+  appapi:
+    build:
+      context: ..
+      dockerfile: deploy/appapi/Dockerfile
+    env_file: ${PLATFORM_ENV_FILE}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8000:8000"
+
+volumes:
+  platform_postgres_data:

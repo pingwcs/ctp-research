@@ -22,7 +22,7 @@ The live-trading foundation separates durable command creation from broker execu
 | `quant_runtime` | Strategy catalog, market-data import, backtest execution, metrics | one-minute parquet, vn.py |
 | `trade_runtime` | Per-account order processing and broker-facing boundaries | Redis Streams, CTP gateway, persistence ports |
 | `trade_supervisor` | Per-account runtime leases and fencing tokens | PostgreSQL |
-| `deploy` | Local live-trading infrastructure and runtime image definitions | Docker Compose, PostgreSQL, Redis |
+| `deploy` | Native Windows release templates and PostgreSQL initial schema | bundled PostgreSQL, PowerShell release scripts |
 
 ## Runtime Status
 

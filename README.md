@@ -1,124 +1,107 @@
-# FutureData CTP Research
+# FutureData CTP 研究平台
 
-## Overview
+## 项目状态
 
-FutureData CTP Research is a full-stack futures research platform for preparing market data, browsing K-line history, running strategy backtests, and developing a controlled CTP live-trading runtime.
+这是一个用于期货行情处理、K 线浏览和策略回测的单机研究平台。开发和发布均直接运行在 Windows 主机上；发布包自带 PostgreSQL、Python 运行时和已构建的 Web UI。
 
-The repository combines a FastAPI backend, React/Vite frontend, multiprocessing data pipeline, standalone vn.py-based quant runtime, and safety-oriented live-trading domain components.
+实盘 CTP 执行尚未达到生产可用状态。不要使用本项目连接真实经纪商账户，直到完成 CTP 原生依赖、SimNow 连通性、凭据管理、进程监管、回调处理与对账恢复的独立验收。
 
-## Capabilities
+| 服务 | 用途 | 入口 |
+| --- | --- | --- |
+| PostgreSQL | 认证、控制与交易基础记录 | `127.0.0.1:5432` |
+| API 与 UI | FastAPI 接口和已构建的 React UI | `127.0.0.1:8000` |
+| 数据管道 | 按需执行 CSV 到 Parquet 的批处理 | 无监听端口 |
 
-- Normalize raw futures CSV data into canonical one-minute and five-minute parquet datasets.
-- Browse contract K-lines through a responsive web UI backed by DuckDB queries.
-- Discover strategies and metrics, run synchronous or asynchronous backtests, and inspect equity and trade results.
-- Register and authenticate users with PostgreSQL-backed credentials and signed bearer tokens.
-- Accept tenant-scoped, idempotent manual-order commands into durable PostgreSQL records.
-- Model risk checks, order lifecycles, Redis Stream delivery, runtime fencing, and CTP submission outcomes.
+所有服务只绑定回环地址。如需远程使用，请通过受控的 Tailscale 或 SSH 隧道访问；不要改为公开监听。
 
-## Architecture
+## 本地开发
 
-The main runtime path is:
+前置条件：Python 3.10+、Node.js 20.19+ 和 pnpm 10.33+。
 
-```text
-raw CSV -> data_pipeline -> canonical parquet
-                                |-- appapi -> appui
-                                `-- quant_runtime -> backtest results -> appapi -> appui
-
-appui -> appapi -> PostgreSQL/outbox -> Redis Streams -> trade_runtime -> CTP
-                      ^                                  |
-                      `------- trade_supervisor ---------'
-```
-
-The research and backtest path is implemented. Live trading remains an emerging foundation that requires deployment integration, compatible Linux CTP dependencies, broker credentials, secrets, process supervision, callbacks, and reconciliation before production use.
-
-See the [architecture overview](docs/architecture/README.md) for subsystem relationships and runtime status.
-
-## Repository Map
-
-| Path | Responsibility |
-| --- | --- |
-| `appui` | React UI, state, charts, and typed API clients |
-| `appapi` | FastAPI routes, HTTP schemas, authentication, market queries, and orchestration |
-| `data_pipeline` | CSV cleaning, aggregation, quality reporting, and parquet output |
-| `quant_runtime` | Strategy/metric catalogs, vn.py import, backtest execution, and worker protocol |
-| `trade_runtime` | Risk, orders, idempotency, health, Redis, and CTP adapter boundaries |
-| `trade_supervisor` | Per-account runtime leases and fencing tokens |
-| `deploy` | PostgreSQL/Redis Compose services and trade-runtime image files |
-| `scripts` | OpenAPI generation and CTP runtime verification |
-| `tests` | Cross-subsystem contract and behavior tests |
-| `agent-docs` | Historical designs and implementation plans |
-| `docs/architecture` | Current maintainer-oriented architecture reference |
-
-## Quick Start
-
-Prerequisites:
-
-- Python 3.10+
-- Node.js 20.19+
-- pnpm 10.33.0, declared in `appui/package.json`
-
-Start the backend from the repository root:
+首次准备环境：
 
 ```powershell
 python -m venv venv
-.\venv\Scripts\Activate.ps1
-pip install -r appapi\requirements.txt
-python -m appapi.main
-```
-
-The API listens at `http://127.0.0.1:8000`; health is available at `http://127.0.0.1:8000/health`.
-
-Start the frontend in another terminal:
-
-```powershell
-cd appui
+.\venv\Scripts\python.exe -m pip install -r appapi\requirements.txt
+Set-Location appui
 pnpm install
-pnpm dev
+Set-Location ..
 ```
 
-Vite listens at `http://127.0.0.1:5173` and proxies `/api` to the backend.
-
-## Common Commands
+启动 API 与前端：
 
 ```powershell
-# Prepare market data
-python data_pipeline\run.py --input-dir data/input --output-dir data/output
+python scripts\dev.py
+```
 
-# Quant runtime dependencies
-pip install -r quant_runtime\requirements.txt
+浏览器访问 [http://127.0.0.1:5173](http://127.0.0.1:5173)。开发前端会把 `/api` 请求转发到 `http://127.0.0.1:8000`。
 
-# Inspect runtime metadata
-python -m quant_runtime.runner metadata
+也可以单独启动一个部分：
 
-# Import a contract into vn.py
-python -m quant_runtime.runner import-data --payload-json '{"symbol":"RB0909","strategy":"ma_cross","metrics":[]}'
+```powershell
+python scripts\dev.py api
+python scripts\dev.py ui
+python scripts\dev.py pipeline
+```
 
-# Run a backtest directly
-python -m quant_runtime.runner run --payload-json '{"symbol":"RB0909","strategy":"ma_cross","metrics":["total_return","max_drawdown"]}'
+数据管道直接读取 `data/input`，并写入 `data/output` 与 `data/market`。
 
-# Run all Python tests
-.\venv\Scripts\python.exe -m pytest
+## Windows 生产发布
 
-# Frontend checks (from appui)
+发布工程师在构建机准备 Python for Windows 和 PostgreSQL for Windows 的完整发行目录；两者不会提交到 Git。构建发布包：
+
+```powershell
+python scripts\build_release.py --python-root C:\runtime-inputs\python --postgres-root C:\runtime-inputs\postgresql --output-root .\release\futuredata
+```
+
+将 `release\futuredata` 复制到目标主机后，一键启动：
+
+```powershell
+.\python\python.exe scripts\production.py start
+```
+
+首次启动自动创建发布目录外的 `runtime` 持久化目录、生成数据库密码与令牌密钥、初始化 PostgreSQL、创建数据库并应用初始架构。发布目录可以替换升级，不会覆盖 `runtime` 中的数据库、日志、备份或配置。
+
+常用运维命令：
+
+```powershell
+.\python\python.exe scripts\production.py status
+.\python\python.exe scripts\production.py logs
+.\python\python.exe scripts\production.py backup
+.\python\python.exe scripts\production.py restart
+.\python\python.exe scripts\production.py stop
+```
+
+生产 UI 由 API 直接提供，入口为 [http://127.0.0.1:8000](http://127.0.0.1:8000)。不需要安装 Node、pnpm、独立 PostgreSQL 或其他运行服务。
+
+## 验证
+
+```powershell
+# Python 行为验证（tests 目录按仓库规则不提交）
+.\venv\Scripts\python.exe -m pytest tests -q -p no:cacheprovider
+
+# 前端检查与生产构建（appui 目录）
 pnpm lint
 pnpm build
 ```
 
-## Configuration
+## 目录说明
 
-Backend paths, CORS, authentication, and quant-runtime settings are controlled by environment variables defined in `global_config.py`. The frontend proxy reads `VITE_APPAPI_TARGET` and defaults to `http://127.0.0.1:8000`.
+| 路径 | 说明 |
+| --- | --- |
+| `appapi` | FastAPI 路由、认证、行情查询与回测编排，以及生产 UI 托管 |
+| `appui` | React/Vite UI、状态管理、图表与 API 客户端 |
+| `data_pipeline` | CSV 清洗、聚合、质量报告与 Parquet 输出 |
+| `market_data` | 兼容的行情读取与数据访问组件 |
+| `quant_runtime` | 策略、指标、vn.py 导入和回测执行 |
+| `deploy/native` | 发布运行时配置模板 |
+| `deploy/postgres` | PostgreSQL 初始架构 |
+| `scripts` | 开发、发布、运维与生成工具 |
 
-Local PostgreSQL and Redis services are defined in `deploy/compose.live-trading.yml`. Create required secret files locally and never commit database passwords, token secrets, or CTP account credentials.
+## 架构文档
 
-## Documentation
-
-- [Architecture overview](docs/architecture/README.md)
-- [Technology stack](docs/architecture/tech-stack.md)
-- [Component boundaries](docs/architecture/components.md)
-- [Data flows](docs/architecture/data-flows.md)
-- [Development and maintenance](docs/architecture/development.md)
-- [CTP account API contract](agent-docs/live-trading/ctp-account-api.md)
-
-## Project Status
-
-Market-data preparation, K-line browsing, authentication, and backtesting are implemented and tested. The live-trading modules establish safety and persistence contracts but are not yet a complete production trading service. Validate the pinned runtime image, native CTP libraries, SimNow connectivity, secrets handling, supervision, and recovery procedures before connecting any broker account.
+- [架构总览](docs/architecture/README.md)
+- [组件边界](docs/architecture/components.md)
+- [数据流](docs/architecture/data-flows.md)
+- [开发与维护](docs/architecture/development.md)
+- [技术栈](docs/architecture/tech-stack.md)

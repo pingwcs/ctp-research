@@ -46,15 +46,15 @@
 
 **Depends on:** a clock and, for durable production-style leases, PostgreSQL connectivity.
 
-**Does not own:** order execution, CTP sessions, or container orchestration. The package currently supplies supervision primitives rather than a complete daemon.
+**Does not own:** order execution, CTP sessions, or process orchestration. The package currently supplies supervision primitives rather than a complete daemon.
 
 ## `deploy`
 
-**Owns:** Docker Compose definitions for PostgreSQL and Redis, the Linux trade-runtime image definition, deployment requirements, and runtime release metadata.
+**Owns:** native Windows release configuration templates, the PostgreSQL initial schema, release assembly inputs, and runtime release metadata.
 
-**Depends on:** Docker/Compose, locally supplied secrets, and access to the required Python/native package sources when images are built.
+**Depends on:** a bundled PostgreSQL for Windows distribution, a bundled Python runtime, locally supplied market data, and secrets generated in the persistent runtime directory.
 
-**Does not own:** application configuration defaults or secret values. The Compose file references a local secret file that operators must create outside version control.
+**Does not own:** application configuration defaults or secret values. `production.py` creates the local runtime configuration outside the release directory on first start.
 
 ## `scripts`
 

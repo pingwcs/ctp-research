@@ -21,6 +21,9 @@ import sys
 PIPELINE_ROOT = os.path.dirname(os.path.abspath(__file__))
 if PIPELINE_ROOT not in sys.path:
     sys.path.insert(0, PIPELINE_ROOT)
+PROJECT_ROOT = os.path.dirname(PIPELINE_ROOT)
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
 
 from src.config import PipelineConfig, InfluxDBConfig, config as default_config
 from src.pipeline import run_pipeline
@@ -47,6 +50,11 @@ def main():
         "--output-dir",
         default=default_config.output_dir,
         help="Directory for output Parquet/log files (default: data/output)",
+    )
+    parser.add_argument(
+        "--market-root",
+        default=default_config.market_root,
+        help="Root directory for canonical partitioned market Parquet files",
     )
     parser.add_argument(
         "--workers",
@@ -113,6 +121,8 @@ def main():
         pipeline_cfg.input_dir = args.input_dir
     if args.output_dir:
         pipeline_cfg.output_dir = args.output_dir
+    if args.market_root:
+        pipeline_cfg.market_root = args.market_root
     if args.workers:
         pipeline_cfg.max_workers = args.workers
 
@@ -120,6 +130,7 @@ def main():
     logger.info("Futures Data Pipeline Starting")
     logger.info(f"  Input dir:    {pipeline_cfg.input_dir}")
     logger.info(f"  Output dir:   {pipeline_cfg.output_dir}")
+    logger.info(f"  Market root:  {pipeline_cfg.market_root}")
     logger.info(f"  Workers:      {pipeline_cfg.max_workers}")
     logger.info(
         f"  InfluxDB:     {'enabled' if pipeline_cfg.influx.enabled else 'disabled'}"

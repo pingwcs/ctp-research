@@ -17,6 +17,7 @@ from appapi.services.parquet_utils import (
     quote_identifier,
     resolve_contract_file,
 )
+from appapi.services.market_query import normalize_limit
 
 
 class KLineReader:
@@ -37,7 +38,7 @@ class KLineReader:
         limit: int = 2000,
     ) -> KLineResponse:
         parquet_path = self._contract_resolver(symbol)
-        safe_limit = _safe_limit(limit)
+        safe_limit = normalize_limit(limit)
         logger.info(
             "Loading kline data: symbol={}, file={}, offset={}, limit={}",
             symbol,
@@ -107,10 +108,6 @@ def load_kline_data(
 
 def _duckdb_memory_connection():
     return duckdb.connect(database=":memory:", read_only=False)
-
-
-def _safe_limit(limit: int) -> int:
-    return max(1, min(limit, 2000))
 
 
 def _safe_offset(total: int, limit: int, offset: int | None) -> int:

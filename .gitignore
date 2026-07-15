@@ -5,6 +5,7 @@ venv/
 agent-docs/
 /quant_runtime/runtime
 /.codex-bug-assets
+docs/superpowers
 
 
 
@@ -30,6 +31,9 @@ var/
 .installed.cfg
 *.egg
 .pytest_cache/
+runtime/
+release/
+*.pid
 
 # test files
 tests/*

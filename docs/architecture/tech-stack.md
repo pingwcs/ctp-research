@@ -35,14 +35,9 @@ DuckDB reads local parquet datasets without loading entire files into an applica
 
 ## Live-Trading Infrastructure
 
-The live-trading foundation uses:
+The live-trading foundation uses PostgreSQL for tenant, account, command, order, event, outbox, and runtime-lease state. Redis Streams and vn.py CTP adapters remain package-level foundations; neither is launched by the research-platform release until their independent runtime acceptance is complete.
 
-- PostgreSQL 16.9 in the Compose definition for tenant, account, command, order, event, outbox, and runtime-lease state;
-- Redis 7.4.2 with append-only persistence for stream-based command and event transport;
-- vn.py CTP integration inside the Linux trade-runtime image;
-- Docker Compose for local PostgreSQL and Redis provisioning.
-
-`deploy/trade-runtime/release-metadata.json` records the intended runtime artifact identity and native package versions. It is release metadata, not proof that a local machine has compatible CTP libraries or credentials.
+CTP native package compatibility and broker credentials remain deployment-specific. They are not bundled with the research-platform release and require separate acceptance before any live-trading operation.
 
 ## Developer Tooling
 
@@ -50,4 +45,4 @@ The live-trading foundation uses:
 - ESLint and Prettier validate and format the frontend.
 - `scripts/generate_openapi.py` regenerates the checked-in OpenAPI document and TypeScript API types.
 - `scripts/verify_ctp_runtime.py` performs offline runtime inspection and can prepare a protected SimNow connectivity probe.
-- Docker and Docker Compose support the infrastructure and runtime-image workflows.
+- PowerShell scripts build, launch, inspect, back up and stop the native Windows release.

@@ -5,6 +5,7 @@ All settings are sourced from environment variables with sensible defaults.
 
 import os
 from dataclasses import dataclass, field
+from platform_config import load_platform_config
 
 
 @dataclass
@@ -29,6 +30,9 @@ class PipelineConfig:
     data_prefix: str = "data/test" if mode == "test" else "data"
     input_dir: str = os.getenv("PIPELINE_INPUT_DIR", data_prefix + "/input")
     output_dir: str = os.getenv("PIPELINE_OUTPUT_DIR", data_prefix + "/output")
+    market_root: str = os.getenv(
+        "PIPELINE_MARKET_ROOT", str(load_platform_config().market_data_root)
+    )
     minute_output_subdir: str = "1min"
     kline_output_subdir: str = "5min"
     max_workers: int = int(os.getenv("PIPELINE_MAX_WORKERS", str(os.cpu_count() or 4)))

@@ -6,6 +6,8 @@ appapi 的统一 HTTP 入口。
 把业务处理委托给 api/services 模块。
 """
 
+from collections.abc import Mapping
+import os
 from pathlib import Path
 import sys
 
@@ -25,9 +27,16 @@ from appapi.api.market import router as market_router
 from appapi.api.trading import router as trading_router
 from appapi.core.config import settings
 from appapi.core.logging import setup_logging
+from appapi.web import mount_static_ui
 
 
 setup_logging()
+
+
+def resolve_listen_host(environ: Mapping[str, str] | None = None) -> str:
+    env = os.environ if environ is None else environ
+    return env.get("APPAPI_HOST") or "127.0.0.1"
+
 
 app = FastAPI(title=settings.app_name)
 
@@ -67,6 +76,9 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
+if settings.appui_dist_dir is not None:
+    mount_static_ui(app, settings.appui_dist_dir)
+
 @app.on_event("startup")
 def on_startup() -> None:
     """业务功能: 启动时记录服务名和行情数据目录，便于定位运行环境。"""
@@ -80,4 +92,4 @@ def on_startup() -> None:
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run("appapi.main:app", host="127.0.0.1", port=8000, reload=False)
+    uvicorn.run("appapi.main:app", host=resolve_listen_host(), port=8000, reload=False)

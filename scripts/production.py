@@ -24,7 +24,7 @@ def main() -> int:
     if not ctl.is_file():
         print(f"Packaged PostgreSQL is incomplete: missing {ctl}", file=sys.stderr)
         return 2
-    config = release / "deploy" / "native" / "prod.env"
+    config = release / "deploy" / "env" / "prod.env"
     try:
         env = load_env(config, production=True)
     except ConfigError as exc:

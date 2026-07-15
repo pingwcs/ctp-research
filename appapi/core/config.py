@@ -26,6 +26,7 @@ class Settings:
     log_dir: Path = project_root
     auth_database_dsn: str = ""
     auth_token_secret: str = ""
+    appui_dist_dir: Path | None = None
     quant_runtime_python: str = ""
     quant_runtime_module: str = ""
     quant_runtime_timeout_seconds: float = 0.0
@@ -44,6 +45,7 @@ def load_settings(environ=None) -> Settings:
         log_dir=env_config.market_log_dir,
         auth_database_dsn=env_config.auth_database_dsn,
         auth_token_secret=env_config.auth_token_secret,
+        appui_dist_dir=env_config.appui_dist_dir,
         quant_runtime_python=env_config.quant_runtime_python,
         quant_runtime_module=env_config.quant_runtime_module,
         quant_runtime_timeout_seconds=env_config.quant_runtime_timeout_seconds,

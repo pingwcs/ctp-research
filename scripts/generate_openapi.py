@@ -8,7 +8,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-os.environ.setdefault("MARKET_LOG_DIR", "../.tmp/openapi-logs")
+os.environ.setdefault("MARKET_LOG_DIR", ".tmp/openapi-logs")
 
 from appapi.main import app
 

@@ -20,6 +20,7 @@ ENV_MARKET_DATA_DIR = "MARKET_DATA_DIR"
 ENV_MARKET_LOG_DIR = "MARKET_LOG_DIR"
 ENV_MARKET_CORS_ORIGINS = "MARKET_CORS_ORIGINS"
 ENV_AUTH_TOKEN_SECRET = "AUTH_TOKEN_SECRET"
+ENV_APPUI_DIST_DIR = "APPUI_DIST_DIR"
 ENV_QUANT_RUNTIME_1MIN_DIR = "QUANT_RUNTIME_1MIN_DIR"
 ENV_QUANT_RUNTIME_DIR = "QUANT_RUNTIME_DIR"
 ENV_QUANT_RUNTIME_DATABASE = "QUANT_RUNTIME_DATABASE"
@@ -54,6 +55,7 @@ class EnvironmentConfig:
     market_cors_origins: tuple[str, ...]
     auth_database_dsn: str
     auth_token_secret: str
+    appui_dist_dir: Path | None
     quant_runtime_minute_data_dir: Path
     quant_runtime_dir: Path
     quant_runtime_database: str
@@ -115,6 +117,11 @@ def load_environment_config(
         auth_token_secret=env.get(
             ENV_AUTH_TOKEN_SECRET,
             DEFAULT_AUTH_TOKEN_SECRET,
+        ),
+        appui_dist_dir=(
+            _resolve_path(project_root, env[ENV_APPUI_DIST_DIR])
+            if env.get(ENV_APPUI_DIST_DIR)
+            else None
         ),
         quant_runtime_minute_data_dir=_resolve_path(
             project_root,

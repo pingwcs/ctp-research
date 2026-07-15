@@ -27,6 +27,7 @@ from appapi.api.market import router as market_router
 from appapi.api.trading import router as trading_router
 from appapi.core.config import settings
 from appapi.core.logging import setup_logging
+from appapi.web import mount_static_ui
 
 
 setup_logging()
@@ -74,6 +75,9 @@ def health() -> dict[str, str]:
     """业务功能: 给部署、代理和本地调试提供轻量存活检查。"""
     return {"status": "ok"}
 
+
+if settings.appui_dist_dir is not None:
+    mount_static_ui(app, settings.appui_dist_dir)
 
 @app.on_event("startup")
 def on_startup() -> None:

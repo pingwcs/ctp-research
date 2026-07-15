@@ -15,6 +15,7 @@ DEFAULT_PLATFORM_ROOT = Path(__file__).resolve().parent
 
 @dataclass(frozen=True)
 class PlatformConfig:
+    app_environment: str
     data_root: Path
     market_data_root: Path
     state_root: Path
@@ -31,12 +32,13 @@ def load_platform_config(
 ) -> PlatformConfig:
     """Load single-host paths and connection details from an environment mapping."""
     env = os.environ if environ is None else environ
+    app_environment = env.get("APP_ENV", "dev")
     root_value = env.get(ENV_PLATFORM_ROOT)
     root = (Path(root_value) if root_value else DEFAULT_PLATFORM_ROOT).expanduser()
     root = root.resolve()
-
     data_root = root / "var" / "data"
     return PlatformConfig(
+        app_environment=app_environment,
         data_root=data_root,
         market_data_root=data_root / "market",
         state_root=root / "var" / "state",

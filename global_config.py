@@ -49,6 +49,7 @@ DEFAULT_QUANT_RUNTIME_BACKTEST_CONFIG_PATH = (
 
 @dataclass(frozen=True)
 class EnvironmentConfig:
+    app_environment: str
     project_root: Path
     market_data_dir: Path
     market_log_dir: Path
@@ -101,6 +102,7 @@ def load_environment_config(
     )
 
     return EnvironmentConfig(
+        app_environment=platform_config.app_environment,
         project_root=project_root,
         market_data_dir=(
             _resolve_path(project_root, env[ENV_MARKET_DATA_DIR])

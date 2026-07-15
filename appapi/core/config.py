@@ -15,8 +15,7 @@ from platform_config import load_platform_config
 @dataclass(frozen=True)
 class Settings:
     """业务功能: appapi 运行所需的不可变配置快照。"""
-
-    app_name: str = "Futures Quantitative Research API"
+    app_environment: str = "dev"
     project_root: Path = Path()
     market_prefix: str = "/api/market"
     backtest_prefix: str = "/api/backtest"
@@ -33,6 +32,7 @@ class Settings:
     quant_runtime_minute_data_dir: Path = project_root
     cors_origins: tuple[str, ...] = ()
     private_network_only: bool = True
+    app_name: str = "Futures Quantitative Research API"
 
 
 def load_settings(environ=None) -> Settings:
@@ -40,6 +40,7 @@ def load_settings(environ=None) -> Settings:
     env_config = load_environment_config(environ)
     platform_config = load_platform_config(environ)
     return Settings(
+        app_environment=env_config.app_environment,
         project_root=env_config.project_root,
         data_dir=env_config.market_data_dir,
         log_dir=env_config.market_log_dir,

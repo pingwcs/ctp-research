@@ -36,7 +36,7 @@ def main() -> int:
     for name in ("global_config.py", "platform_config.py"):
         shutil.copy2(ROOT / name, output / name)
     shutil.copytree(ROOT / "appui" / "dist", output / "appui" / "dist")
-    shutil.copytree(ROOT / "deploy" / "native", output / "deploy" / "native")
+    shutil.copytree(ROOT / "deploy" / "env", output / "deploy" / "env")
     shutil.copytree(ROOT / "deploy" / "postgres", output / "deploy" / "postgres")
     (output / "scripts").mkdir()
     shutil.copy2(ROOT / "scripts" / "production.py", output / "scripts" / "production.py")

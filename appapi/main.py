@@ -33,11 +33,6 @@ from appapi.web import mount_static_ui
 setup_logging()
 
 
-def resolve_listen_host(environ: Mapping[str, str] | None = None) -> str:
-    env = os.environ if environ is None else environ
-    return env.get("APPAPI_HOST") or "127.0.0.1"
-
-
 app = FastAPI(title=settings.app_name)
 
 app.add_middleware(
@@ -76,8 +71,9 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
-if settings.appui_dist_dir is not None:
+if settings.app_environment == "prod" and settings.appui_dist_dir is not None:
     mount_static_ui(app, settings.appui_dist_dir)
+
 
 @app.on_event("startup")
 def on_startup() -> None:
@@ -92,4 +88,6 @@ def on_startup() -> None:
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run("appapi.main:app", host=resolve_listen_host(), port=8000, reload=False)
+    uvicorn.run(
+        "appapi.main:app", host=settings.app_host, port=settings.app_port, reload=False
+    )

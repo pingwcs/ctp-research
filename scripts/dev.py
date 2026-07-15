@@ -20,7 +20,7 @@ def main() -> int:
         print(f"Unknown target: {args.target}", file=sys.stderr)
         return 2
     try:
-        config = load_env(ROOT / "deploy" / "native" / "dev.env", production=False)
+        config = load_env(ROOT / "deploy" / "env" / "dev.env", production=False)
     except ConfigError as exc:
         print(str(exc), file=sys.stderr)
         return 2
